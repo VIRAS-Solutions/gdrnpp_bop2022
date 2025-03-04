@@ -32,12 +32,17 @@ class YoloPredictor():
                        config_file_path=osp.join(PROJ_ROOT,"configs/yolox/bop_pbr/yolox_x_640_augCozyAAEhsv_ranger_30_epochs_lmo_pbr_lmo_bop_test.py"),
                        ckpt_file_path=osp.join(PROJ_ROOT,"output/yolox/bop_pbr/yolox_x_640_augCozyAAEhsv_ranger_30_epochs_lmo_pbr_lmo_bop_test/model_final.pth"),
                        fuse=True,
-                       fp16=False):
+                       fp16=False,
+                       use_gpu=True):
+        self.use_gpu = use_gpu
         self.exp = get_exp(None, exp_name)
         self.model = self.exp.get_model()
         logger.info("Model Summary: {}".format(get_model_info(self.model, self.exp.test_size)))
-        self.model.cuda()
-
+        if self.use_gpu:
+            self.model.cuda()
+        else:
+            self.model.cpu()
+        self.model.eval()
         logger.info("loading checkpoint")
         self.args = SimpleNamespace(ckpt_file=ckpt_file_path,
                                     config_file=config_file_path,
@@ -46,15 +51,18 @@ class YoloPredictor():
                                     fp16=fp16
                                     )
         self.model = YOLOX_DefaultTrainer.build_model(self.setup())
+
         MyCheckpointer(self.model).resume_or_load(
             self.args.ckpt_file, resume=True
         )
+
         logger.info("loaded checkpoint done.")
         if self.args.fuse:
             logger.info("\tFusing model...")
             self.model = fuse_model(self.model)
 
         self.preproc = ValTransform(legacy=False)
+
 
     def setup(self):
         """Create configs and perform basic setups."""
@@ -66,23 +74,27 @@ class YoloPredictor():
         self.cfg = cfg.test
         return cfg
 
-    def visual_yolo(self, output, rgb_image, class_names, cls_conf=0.35):
+    def visual_yolo(self, outputs, image, class_names, cls_conf=0.35):
         # rgb_image = cv2.cvtColor(rgb_image, cv2.COLOR_BGR2RGB)
-        if output is None:
-            return rgb_image
-        output = output.cpu()
+        if outputs is None or outputs is [] or outputs is [None]:
+            return image
+        rgb_image = image.copy()
+        #for output in outputs:
+        #    output = output.cpu()
+        if outputs != []:
+            bboxes = outputs[:, 0:4]
 
-        bboxes = output[:, 0:4]
+            cls = outputs[:, 6]
+            scores = outputs[:, 4] * outputs[:, 5]
+            vis_res = vis(rgb_image.copy(), bboxes, scores, cls, cls_conf, class_names)
+        else:
+            vis_res = rgb_image.copy()
+        cv2.imshow('YOLO Object Detection', vis_res)
+        cv2.waitKey(1)
 
-        cls = output[:, 6]
-        scores = output[:, 4] * output[:, 5]
-
-        vis_res = vis(rgb_image, bboxes, scores, cls, cls_conf, class_names)
-        cv2.imshow('cam', vis_res)
-        cv2.waitKey(0)
-
-    def postprocess(self, det_preds, num_classes, conf_thre=0.7, nms_thre=0.45, class_agnostic=False,
+    def postprocess(self, det_preds, conf_thre=0.7, nms_thre=0.45, class_agnostic=False,
                     keep_single_instance=False):
+        num_classes = self.cfg.num_classes
         box_corner = det_preds.new(det_preds.shape)
         box_corner[:, :, 0] = det_preds[:, :, 0] - det_preds[:, :, 2] / 2
         box_corner[:, :, 1] = det_preds[:, :, 1] - det_preds[:, :, 3] / 2
@@ -138,7 +150,68 @@ class YoloPredictor():
             else:
                 output[i] = torch.cat((output[i], detections))
         return output
+    # def postprocess(self, det_preds, conf_thre=0.7, nms_thre=0.45, class_agnostic=False, keep_single_instance=False):
+        
+    #     boxes = []
+    #     num_classes = self.cfg.num_classes
+    #     for prediction in det_preds:
+    #         box  = {}
+    #         box["center_x"] = prediction[0,0]
+    #         box["center_y"] = prediction[0,1]
+    #         box["width"] = prediction[0,2]/2
+    #         box["height"] = prediction[0,3]/2
+    #         boxes.append(box)
+    #     return boxes
 
+
+    #     box_corner = det_preds.new(det_preds.shape)
+    #     box_corner[:, :, 0] = det_preds[:, :, 0] - det_preds[:, :, 2] / 2
+    #     box_corner[:, :, 1] = det_preds[:, :, 1] - det_preds[:, :, 3] / 2
+    #     box_corner[:, :, 2] = det_preds[:, :, 0] + det_preds[:, :, 2] / 2
+    #     box_corner[:, :, 3] = det_preds[:, :, 1] + det_preds[:, :, 3] / 2
+    #     det_preds[:, :, :4] = box_corner[:, :, :4]
+
+    #     output = [None for _ in range(len(det_preds))]
+    #     for i, image_pred in enumerate(det_preds):
+
+    #         # If none are remaining => process next image
+    #         if not image_pred.size(0):
+    #             # logger.warn(f"image_pred.size: {image_pred.size(0)}")
+    #             continue
+    #         # Get score and class with highest confidence
+    #         class_conf, class_pred = torch.max(image_pred[:, 5: 5 + num_classes], 1, keepdim=True)
+
+    #         conf_mask = (image_pred[:, 4] * class_conf.squeeze() >= conf_thre).squeeze()
+    #         # Detections ordered as (x1, y1, x2, y2, obj_conf, class_conf, class_pred)
+    #         detections = torch.cat((image_pred[:, :5], class_conf, class_pred.float()), 1)
+    #         detections = detections[conf_mask]
+
+    #         if not detections.size(0):
+    #             # logger.warn(f"detections.size(0) {detections.size(0)} num_classes: {num_classes} conf_thr: {conf_thre} nms_thr: {nms_thre}")
+    #             continuepreproc
+
+    #         if class_agnostic:
+    #             nms_out_index = torchvision.ops.nms(
+    #                 detections[:, :4],
+    #                 detections[:, 4] * detections[:, 5],
+    #                 nms_thre,
+    #             )
+    #         else:
+    #             nms_out_index = torchvision.ops.batched_nms(
+    #                 detections[:, :4],
+    #                 detections[:, 4] * detections[:, 5],
+    #                 detections[:, 6],
+    #                 nms_thre,
+    #             )
+
+    #         detections = detections[nms_out_index]
+    #         detections = torch.tensor(detections[detections[:, 6].argsort()])
+    #         if output[i] is None:
+    #             output[i] = detections
+    #         else:
+    #             output[i] = torch.cat((output[i], detections))
+    #     return output
+        
     def inference(self, image):
         """
         Preprocess input image, run inference and postprocess the output.
@@ -149,10 +222,17 @@ class YoloPredictor():
         """
         img, _ = self.preproc(image, None, self.cfg.test_size)
         img = torch.from_numpy(img).unsqueeze(0)
-        img = img.cuda()
+        if self.use_gpu:
+            img = img.cuda()
+        else:
+            self.model.cpu()
+
         if self.args.fp16:
             img = img.float()
-            img = img.type(torch.cuda.HalfTensor)
+            if self.use_gpu:
+                img = img.type(torch.cuda.HalfTensor)
+            else:
+                img = img.type(torch.HalfTensor)
 
         with ExitStack() as stack:
             if isinstance(self.model, nn.Module):
@@ -161,14 +241,8 @@ class YoloPredictor():
             if self.args.fp16:
                 self.model = self.model.half()
             outputs = self.model(img, cfg=self.cfg)
-            outputs = self.postprocess(outputs["det_preds"],
-                                  self.cfg.num_classes,
-                                  self.cfg.conf_thr,
-                                  self.cfg.nms_thr,
-                                  class_agnostic=True,
-                                  keep_single_instance=True)
 
-        return outputs
+        return outputs["det_preds"]
 
 if __name__ == "__main__":
     predictor = YoloPredictor(
@@ -180,5 +254,6 @@ if __name__ == "__main__":
                        )
     img_path = osp.join(PROJ_ROOT,"datasets/BOP_DATASETS/lmo/test/000001/rgb/000000.jpg")
     img = cv2.imread(img_path)
-    result = predictor.inference(img)
-    predictor.visual_yolo(result[0], img, ["cls_name_1", "cls_name_2"])
+    results = predictor.inference(img)
+    for result in results:
+    	predictor.visual_yolo(result, img, ["cls_name_1", "cls_name_2"])

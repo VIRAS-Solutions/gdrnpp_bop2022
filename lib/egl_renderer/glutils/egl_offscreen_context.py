@@ -28,6 +28,7 @@ def _ensure_egl_loaded():
 
 _ensure_egl_loaded()
 from OpenGL import EGL as egl
+from OpenGL import GL
 
 from OpenGL.EGL import (
     EGL_SURFACE_TYPE,
@@ -116,6 +117,9 @@ def get_device_by_index(device_id):
         return get_default_device()
 
     devices = query_devices()
+    
+    print(len(devices))
+    print("################################")
     if device_id >= len(devices):
         raise ValueError("Invalid device ID ({})".format(device_id, len(devices)))
     return devices[device_id]
@@ -218,12 +222,18 @@ class OffscreenContext(object):
         self._egl_context = eglCreateContext(self._egl_display, configs[0], EGL_NO_CONTEXT, context_attributes)
         if self._egl_context == EGL_NO_CONTEXT:
             raise RuntimeError("Unable to create context")
-
         # Make it current
         self.make_current()
+        print("OpenGL Version:", GL.glGetString(GL.GL_VERSION))
+        # Drucke die unterstützten Erweiterungen
+        num_extensions = GL.glGetIntegerv(GL.GL_NUM_EXTENSIONS)
+        print("Supported Extensions:{}".format(num_extensions))
+        for i in range(num_extensions):
+            extension = GL.glGetStringi(GL.GL_EXTENSIONS, i).decode()
+            print(extension)
 
-        if not glInitBindlessTextureNV():
-            raise RuntimeError("Bindless Textures not supported")
+        #if not glInitBindlessTextureNV():
+        #    raise RuntimeError("Bindless Textures not supported")
         self.__display = self._egl_display
 
     def make_current(self):

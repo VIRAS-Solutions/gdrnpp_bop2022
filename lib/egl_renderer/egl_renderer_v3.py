@@ -91,8 +91,12 @@ class EGLRenderer(object):
         self.poses_rot = []
 
         self.r = CppEGLRenderer.CppEGLRenderer(width, height, cuda_device_idx)
+        print(self.r.init())
+        print(self.r.query())
+        quit()
         self.r.init()
         self.glstring = GL.glGetString(GL.GL_VERSION)
+        print(self.glstring)
         from OpenGL.GL import shaders
 
         self.shaders = shaders
@@ -1218,6 +1222,13 @@ class EGLRenderer(object):
             )
             pc_obj_tensor.data = torch.flip(pc_obj_tensor, (0,))
         if pc_cam_tensor is not None:
+            print("AAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+            print(self.color_tex_5)
+            print(self.width)
+            print(self.height)
+            print(pc_cam_tensor.cpu().numpy().shape)
+            print(self.glstring)
+            print(self.r)
             self.r.map_tensor(
                 int(self.color_tex_5),
                 int(self.width),
@@ -1405,7 +1416,7 @@ if __name__ == "__main__":
     classes = idx2class.values()
     classes = sorted(classes)
 
-    model_root = "datasets/BOP_DATASETS/lm/models/"
+    model_root = "/gdrnpp_bop2022/datasets/BOP_DATASETS/lm/models/"
     model_paths = [osp.join(model_root, "obj_{:06d}.ply".format(cls_idx)) for cls_idx in idx2class]
     models = [inout.load_ply(model_path, vertex_scale=0.001) for model_path in model_paths]
     extents = [get_vertices_extent(model["pts"]) for model in models]
@@ -1441,7 +1452,7 @@ if __name__ == "__main__":
     # pose4 = np.hstack([R, t.reshape((3, 1)) + 0.05])
     # renderer.set_poses([pose])
 
-    bg_images = glob.glob("datasets/coco/train2017/*.jpg")
+    bg_images = glob.glob("/gdrnpp_bop2022/datasets/coco/train2017/*.jpg")
     num_bg_imgs = len(bg_images)
 
     # rendering

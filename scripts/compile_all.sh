@@ -11,31 +11,31 @@ python setup.py
 
 echo ""
 echo "********build flow************"
-cd ../flow/
-rm -rf build/
-python setup.py build_ext --inplace
+#cd ../flow/
+#rm -rf build/
+#python setup.py build_ext --inplace
 
 
 echo ""
 echo "********build ransac_voting************"
-cd ../ransac_voting
-rm -rf build
-python setup.py build_ext --inplace
+#cd ../ransac_voting
+#rm -rf build
+#python setup.py build_ext --inplace
 
 
 echo ""
 echo "********build uncertainty pnp************"
-cd ../uncertainty_pnp
+#cd ../uncertainty_pnp
 # sh build_ceres.sh
-rm -rf build/
-python setup.py build_ext --inplace
+#rm -rf build/
+#python setup.py build_ext --inplace
 
 
 echo ""
 echo "********build torch_nndistance (chamfer distance)************"
-cd ../torch_nndistance
-rm -rf build
-python setup.py build_ext --inplace
+#cd ../torch_nndistance
+#rm -rf build
+#python setup.py build_ext --inplace
 
 
 echo ""

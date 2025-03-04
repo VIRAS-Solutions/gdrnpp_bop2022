@@ -182,9 +182,16 @@ class GDRN_Online_DatasetFromList(Base_DatasetFromList):
         if self._serialize:
             logger.info("Serializing {} elements to byte tensors and concatenating them all ...".format(len(self._lst)))
             self._lst = [_serialize(x) for x in self._lst]
+            #logger.info("test1")
             self._addr = np.asarray([len(x) for x in self._lst], dtype=np.int64)
+            #logger.info("test2")
             self._addr = np.cumsum(self._addr)
+            #logger.info("test3")
             self._lst = np.concatenate(self._lst)
+            #result = self._lst[0]
+            #for arr in self._lst[1:]:
+            #    result = np.concatenate([result,arr])
+            #logger.info("test4")
             logger.info("Serialized dataset takes {:.2f} MiB".format(len(self._lst) / 1024**2))
 
     def __len__(self):
@@ -260,7 +267,7 @@ class GDRN_Online_DatasetFromList(Base_DatasetFromList):
             register_datasets([dataset_name])
             dset_meta = MetadataCatalog.get(dataset_name)
             ref_key = dset_meta.ref_key
-
+            
         data_ref = ref.__dict__[ref_key]
         objs = dset_meta.objs
         cfg = self.cfg
@@ -314,7 +321,7 @@ class GDRN_Online_DatasetFromList(Base_DatasetFromList):
         cfg = self.cfg
         net_cfg = cfg.MODEL.POSE_NET
         g_head_cfg = net_cfg.GEO_HEAD
-
+        
         dataset_dict = copy.deepcopy(dataset_dict)  # it will be modified by code below
 
         dataset_name = dataset_dict["dataset_name"]
@@ -388,7 +395,6 @@ class GDRN_Online_DatasetFromList(Base_DatasetFromList):
         # for 6d pose task, flip is not allowed in general except for some 2d keypoints methods
         image, transforms = T.apply_augmentations(self.augmentation, image)
         im_H, im_W = image_shape = image.shape[:2]  # h, w
-
         # NOTE: scale camera intrinsic if necessary ================================
         # TODO: resize depth and mask if necessary ================================
         scale_x = im_W / im_W_ori
@@ -766,3 +772,4 @@ class GDRN_Online_DatasetFromList(Base_DatasetFromList):
                 idx = self._rand_another(idx)
                 continue
             return processed_data
+            

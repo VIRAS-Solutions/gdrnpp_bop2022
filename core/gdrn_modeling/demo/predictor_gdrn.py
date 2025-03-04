@@ -41,11 +41,13 @@ from core.gdrn_modeling.models import (
     GDRN_Dstream_double_mask,
 )  # noqa
 
+import core.gdrn_modeling.demo.utils
+
 class GdrnPredictor():
     def __init__(self,
                  config_file_path=osp.join(PROJ_ROOT,"configs/gdrn/lmo_pbr/convnext_a6_AugCosyAAEGray_BG05_mlL1_DMask_amodalClipBox_classAware_lmo.py"),
                  ckpt_file_path=osp.join(PROJ_ROOT,"output/gdrn/lmo_pbr/convnext_a6_AugCosyAAEGray_BG05_mlL1_DMask_amodalClipBox_classAware_lmo/model_final.pth"),
-                 camera_json_path=osp.join(PROJ_ROOT,"datasets/BOP_DATASETS/lmo/camera.json"),
+                 camera_json_path=osp.join(PROJ_ROOT,"datasets/BOP_DATASETS/itodd/camera.json"),
                  path_to_obj_models=osp.join(PROJ_ROOT,"datasets/BOP_DATASETS/lmo/models")
                  ):
 
@@ -73,21 +75,75 @@ class GdrnPredictor():
         self.objs_dir = path_to_obj_models
 
         #set your trained object names
-        self.objs = {1:'class_name_1',
-                     2:'class_name_2'}
+        #self.objs = {
+        #    1: "002_master_chef_can",  # [1.3360, -0.5000, 3.5105]
+        #    2: "003_cracker_box",  # [0.5575, 1.7005, 4.8050]
+        #    3: "004_sugar_box",  # [-0.9520, 1.4670, 4.3645]
+        #    4: "005_tomato_soup_can",  # [-0.0240, -1.5270, 8.4035]
+        #    5: "006_mustard_bottle",  # [1.2995, 2.4870, -11.8290]
+        #    6: "007_tuna_fish_can",  # [-0.1565, 0.1150, 4.2625]
+        #    7: "008_pudding_box",  # [1.1645, -4.2015, 3.1190]
+        #    8: "009_gelatin_box",  # [1.4460, -0.5915, 3.6085]
+        #    9: "010_potted_meat_can",  # [2.4195, 0.3075, 8.0715]
+        #    10: "011_banana",  # [-18.6730, 12.1915, -1.4635]
+        #    11: "019_pitcher_base",  # [5.3370, 5.8855, 25.6115]
+        #    12: "021_bleach_cleanser",  # [4.9290, -2.4800, -13.2920]
+        #    13: "024_bowl",  # [-0.2270, 0.7950, -2.9675]
+        #    14: "025_mug",  # [-8.4675, -0.6995, -1.6145]
+        #    15: "035_power_drill",  # [9.0710, 20.9360, -2.1190]
+        #    16: "036_wood_block",  # [1.4265, -2.5305, 17.1890]
+        #    17: "037_scissors",  # [7.0535, -28.1320, 0.0420]
+        #    18: "040_large_marker",  # [0.0460, -2.1040, 0.3500]
+        #    19: "051_large_clamp",  # [10.5180, -1.9640, -0.4745]
+        #    20: "052_extra_large_clamp",  # [-0.3950, -10.4130, 0.1620]
+        #    21: "061_foam_brick",  # [-0.0805, 0.0805, -8.2435]
+        #}
+        
+        self.objs = {
+        	1: "001-Teil",
+        	2: "002-Teil",
+        	3: "003-Teil",
+        	4: "004-Teil",
+        	5: "005-Teil",
+        	6: "006-Teil",
+        	7: "007-Teil",
+        	8: "008-Teil",
+        	9: "009-Teil",
+        	10: "010-Teil",
+        	11: "011-Teil",
+        	12: "012-Teil",
+        	13: "013-Teil",
+        	14: "014-Teil",
+        	15: "015-Teil",
+        	16: "016-Teil",
+        	17: "017-Teil",
+        	18: "018-Teil",
+        	19: "019-Teil",
+        	20: "020-Teil",
+        	21: "021-Teil",
+#        	22: "022-Teil",
+#        	23: "023-Teil",
+#        	24: "024-Teil",
+#        	25: "025-Teil",
+#        	26: "026-Teil",
+#        	27: "027-Teil",
+#        	28: "028-Teil",
+        }
+        
 
         self.cls_names = [i for i in self.objs.values()]
         self.obj_ids = [i for i in self.objs.keys()]
         self.extents = self._get_extents()
 
-        with open(camera_json_path) as f:
-            camera_json = json.load(f)
-            self.cam = np.asarray([
-                [camera_json['fx'], 0., camera_json['cx']],
-                [0., camera_json['fy'], camera_json['cy']],
-                [0., 0., 1.]])
-            self.depth_scale = camera_json['depth_scale']
+#        with open(camera_json_path) as f:
+#            camera_json = json.load(f)
+#            self.cam = np.asarray([[camera_json['fx'], 0., camera_json['cx']],[0., camera_json['fy'], camera_json['cy']],[0., 0., 1.]])
+#
+#            self.depth_scale = camera_json['depth_scale']
 
+        self.cam = np.array([[1066.778, 0.0, 312.9869],[0.0, 1067.487, 241.3109],[0.0, 0.0, 1.0]])
+        #self.cam = np.array([[610, 0.0, 320],[0.0, 610, 2415],[0.0, 0.0, 1.0]])
+        self.depth_scale=1.0
         model_lite = Lite(
             accelerator="gpu",
             strategy=None,
@@ -178,15 +234,15 @@ class GdrnPredictor():
                     }
                 )
             data_dict["cur_res"].append(cur_res)
-        if self.cfg.TEST.USE_DEPTH_REFINE:
-            self.process_depth_refine(data_dict, out_dict)
+        #if self.cfg.TEST.USE_DEPTH_REFINE:
+        #    self.process_depth_refine(data_dict, out_dict)
 
         poses = {}
         for res in data_dict["cur_res"]:
             pose = np.eye(4)
             pose[:3, :3] = res['R']
             pose[:3, 3] = res['t']
-            poses[self.objs.get(res['obj_id'])] = pose
+            poses[res['obj_id']] = pose
 
         return poses
 
@@ -298,7 +354,7 @@ class GdrnPredictor():
         cls_name = self.cls_names[label]
         return label, cls_name
 
-    def preprocessing(self, outputs, image, depth_img = None):
+    def preprocessing(self, bbox, image, depth_img = None):
         """
         Preprocessing detection model output and input image
         Args:
@@ -314,19 +370,13 @@ class GdrnPredictor():
             "annotations": []
         }
 
-        if outputs is None:
-            # TODO set default output
-            return None
-        boxes = outputs[0].cpu()
-
-        for i in range(len(boxes)):
+        
+        for box in bbox:
             annot_inst = {}
-            box = boxes[i].tolist()
-            annot_inst["category_id"] = int(box[6])
-            annot_inst["score"] = box[4] * box[5]
+            annot_inst["category_id"] = int(box[5])
+            annot_inst["score"] = box[4]
             annot_inst["bbox_est"] = [box[0], box[1], box[2], box[3]]
             annot_inst["bbox_mode"] = BoxMode.XYXY_ABS
-
             dataset_dict["annotations"].append(annot_inst)
 
         im_H_ori, im_W_ori = image.shape[:2]
@@ -372,6 +422,9 @@ class GdrnPredictor():
         for _key in roi_keys:
             roi_infos[_key] = []
 
+        #for inst_i, inst_infos in enumerate(dataset_dict["annotations"]):
+        #    print(inst_infos["category_id"])
+
         for inst_i, inst_infos in enumerate(dataset_dict["annotations"]):
             # inherent image-level infos
             roi_infos["im_H"].append(im_H)
@@ -389,6 +442,8 @@ class GdrnPredictor():
             roi_infos["time"].append(inst_infos.get("time", 0))
 
             # extent
+            #print("############")
+            #print(str(self.extents))
             roi_extent = self.extents[roi_cls]
             roi_infos["roi_extent"].append(roi_extent)
 
@@ -481,10 +536,10 @@ class GdrnPredictor():
 
         cur_extents = {}
         idx = 0
-        for i, obj_name in self.objs.items():
-            model_path = os.path.join(self.objs_dir, f"obj_{i:06d}.ply")
+        for obj_key in self.objs.keys():
+            model_path = os.path.join(self.objs_dir, f"obj_{obj_key:06d}.ply")
             model = inout.load_ply(model_path, vertex_scale=self.args.vertex_scale)
-            self.obj_models[i] = model
+            self.obj_models[obj_key] = model
             pts = model["pts"]
             xmin, xmax = np.amin(pts[:, 0]), np.amax(pts[:, 0])
             ymin, ymax = np.amin(pts[:, 1]), np.amax(pts[:, 1])
@@ -511,7 +566,7 @@ class GdrnPredictor():
                 cfg.OUTPUT_ROOT,
                 os.path.splitext(args.config_file)[0].split("configs/")[1],
             )
-            iprint(f"OUTPUT_DIR was automatically set to: {cfg.OUTPUT_DIR}")
+            #iprint(f"OUTPUT_DIR was automatically set to: {cfg.OUTPUT_DIR}")
 
         if cfg.get("EXP_NAME", "") == "":
             setproctitle("{}.{}".format(os.path.splitext(os.path.basename(args.config_file))[0], get_time_str()))
@@ -520,7 +575,7 @@ class GdrnPredictor():
 
         if cfg.SOLVER.AMP.ENABLED:
             if torch.cuda.get_device_capability() <= (6, 1):
-                iprint("Disable AMP for older GPUs")
+                #iprint("Disable AMP for older GPUs")
                 cfg.SOLVER.AMP.ENABLED = False
 
         # NOTE: pop some unwanted configs in detectron2
@@ -546,7 +601,7 @@ class GdrnPredictor():
                 cfg.SOLVER.OPTIMIZER_CFG = optim_cfg
             else:
                 optim_cfg = cfg.SOLVER.OPTIMIZER_CFG
-            iprint("optimizer_cfg:", optim_cfg)
+            #iprint("optimizer_cfg:", optim_cfg)
             cfg.SOLVER.OPTIMIZER_NAME = optim_cfg["type"]
             cfg.SOLVER.BASE_LR = optim_cfg["lr"]
             cfg.SOLVER.MOMENTUM = optim_cfg.get("momentum", 0.9)
@@ -560,7 +615,7 @@ class GdrnPredictor():
             cfg.SOLVER.WEIGHT_DECAY *= cfg.SOLVER.IMS_PER_BATCH * accumulate_iter / bs_ref
         # -------------------------------------------------------------------------
         if cfg.get("DEBUG", False):
-            iprint("DEBUG")
+            #iprint("DEBUG")
             args.num_gpus = 1
             args.num_machines = 1
             cfg.DATALOADER.NUM_WORKERS = 0
@@ -580,8 +635,60 @@ class GdrnPredictor():
         # cfg.freeze()
         return cfg
 
-    def gdrn_visualization(self, batch, out_dict, image, frame_count=0):
-        vis_dict = {}
+    def gdrn_visualization_own(self, batch, out_dict, image):
+        # gt_data
+        img = image.copy()
+
+        #print("### GDRN VISUALIZATION ###")
+
+        # for crop and resize
+        bs = batch["roi_cls"].shape[0]
+        #print(f'Number of detections: {bs}')
+        tensor_kwargs = {"dtype": torch.float32, "device": "cuda"}
+        rois_xy0 = batch["roi_center"] - (batch["scale"].view(bs, -1) / 2)  # bx2
+        rois_xy1 = batch["roi_center"] + (batch["scale"].view(bs, -1) / 2)  # bx2
+        batch["inst_rois"] = torch.cat([torch.arange(bs, **tensor_kwargs).view(-1, 1), rois_xy0*2, rois_xy1*2], dim=1)
+        #print(batch["inst_rois"])
+        im_H = int(batch["im_H"][0])
+        im_W = int(batch["im_W"][0])
+        #print(f'image Shape: {im_H}:{im_W}')
+
+        for i in range(bs):
+            R = batch["cur_res"][i]["R"]
+            t = batch["cur_res"][i]["t"]
+            #print(f'{i}. cur_res t: {t} ({t*2})\n{i}. cur_res R:{R}')
+            #print(f'im_H: {im_H}')
+            #print(f'im_W: {im_W}')
+
+            # pose_est = np.hstack([R, t.reshape(3, 1)])
+            proj_pts_est = misc.project_pts(self.obj_models[int(batch["roi_cls"][i])+1]["pts"], self.cam, R, t)
+            #print(f'proj_pts_est: {proj_pts_est.shape}')
+            proj_pts_est=proj_pts_est
+            mask_pose_est = misc.points2d_to_mask(proj_pts_est, im_H, im_W)
+            image_mask_pose_est = vis_image_mask_cv2(image, mask_pose_est, color="white")
+
+            #class_id = int(batch["roi_cls"].cpu()[i]) + 1
+
+            # get ADD Metric
+            #add_metric = 0.0
+            #print("######################")
+            #print(type(R))
+            #print(R)
+            #print(type(t))
+            #print(t)
+
+            image = cv2.cvtColor(image_mask_pose_est[:, :, ::-1], cv2.COLOR_BGR2RGB)
+            #cv2.imwrite(f'/gdrnpp_bop2022/test-output/{i}.jpg',img_pose)
+            #text = f'ID: {class_id},  ' + f'Name: {self.objs[int(class_id)]},  '
+            #text2 = f'Prop.: {batch["score"][i]:.2f}%,  ADD: {add_metric:.2f}'
+            #cv2.putText(img_pose, text, (10,450), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1, cv2.LINE_AA)
+            #cv2.putText(img_pose, text2, (10,470), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1, cv2.LINE_AA)
+        
+        cv2.imshow(f'Output',image)
+        cv2.waitKey(1)
+    
+    def gdrn_visualization(self, batch, out_dict, image):
+        img = image.copy()
 
         # for crop and resize
         bs = batch["roi_cls"].shape[0]
@@ -590,8 +697,8 @@ class GdrnPredictor():
         rois_xy1 = batch["roi_center"] + batch["scale"].view(bs, -1) / 2  # bx2
         batch["inst_rois"] = torch.cat([torch.arange(bs, **tensor_kwargs).view(-1, 1), rois_xy0, rois_xy1], dim=1)
 
-        im_H = int(batch["im_H"][0])
-        im_W = int(batch["im_W"][0])
+        im_H = int(batch["im_H"][0]/2)
+        im_W = int(batch["im_W"][0]/2)
         if "full_mask" in out_dict:
             raw_full_masks = out_dict["full_mask"]
             full_mask_probs = get_out_mask(self.cfg, raw_full_masks)
@@ -602,7 +709,6 @@ class GdrnPredictor():
                 threshold=0.5,
             )
             full_masks_np = full_masks_in_im.detach().to(torch.uint8).cpu().numpy()
-
             img_vis_full_mask = vis_image_mask_bbox_cv2(
                 image,
                 [full_masks_np[i] for i in range(bs)],
@@ -626,5 +732,5 @@ class GdrnPredictor():
             )
             vis_dict[f"im_{i}_mask_pose_est"] = image_mask_pose_est[:, :, ::-1]
         show_ims = np.hstack([cv2.cvtColor(_v, cv2.COLOR_BGR2RGB) for _k, _v in vis_dict.items()])
-        cv2.imshow('Main', show_ims)
+        cv2.imshow('result', show_ims)
         cv2.waitKey(0)

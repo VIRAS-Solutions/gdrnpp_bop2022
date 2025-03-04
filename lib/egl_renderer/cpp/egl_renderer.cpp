@@ -50,48 +50,101 @@ static EGLDisplay getCudaDisplay(int cudaDeviceIdx)
     typedef EGLBoolean (*eglQueryDevicesEXT_t)(EGLint, EGLDeviceEXT, EGLint*);
     typedef EGLBoolean (*eglQueryDeviceAttribEXT_t)(EGLDeviceEXT, EGLint, EGLAttrib*);
     typedef EGLDisplay (*eglGetPlatformDisplayEXT_t)(EGLenum, void*, const EGLint*);
+    std::cout << "CudaDeviceIDX: " << cudaDeviceIdx << std::endl;
 
     eglQueryDevicesEXT_t eglQueryDevicesEXT = (eglQueryDevicesEXT_t)eglGetProcAddress("eglQueryDevicesEXT");
     if (!eglQueryDevicesEXT)
     {
-        fprintf(stderr, "eglGetProcAddress(\"eglQueryDevicesEXT\") failed");
+        fprintf(stderr, "eglGetProcAddress(\"eglQueryDevicesEXT\") failed\n\n\n");
+        std::cout << "ERRRRROOOOORRRRR" << std::endl ;
         return 0;
     }
-
+    // Testaufruf der Funktion
+    EGLint maxDevices1 = 10; // Maximale Anzahl von Geräten, die abgerufen werden sollen
+    EGLDeviceEXT devices1[10]; // Array zum Speichern der Geräte
+    EGLint numDevices1; // Variable zum Speichern der Anzahl von zurückgegebenen Geräten
+    EGLBoolean result1 = eglQueryDevicesEXT(maxDevices1, devices1, &numDevices1);
+    if (result1 == EGL_FALSE) {
+        std::cout << "Fehler: eglQueryDevicesEXT konnte nicht erfolgreich ausgeführt werden.\n";
+    }
     eglQueryDeviceAttribEXT_t eglQueryDeviceAttribEXT = (eglQueryDeviceAttribEXT_t)eglGetProcAddress("eglQueryDeviceAttribEXT");
-    if (!eglQueryDeviceAttribEXT)
+    std::cout << "TESTESTESTESTESTESTESTJGHGHJ" << *eglQueryDeviceAttribEXT << eglQueryDeviceAttribEXT << std::endl;
+    if (eglQueryDeviceAttribEXT == NULL)
     {
-        fprintf(stderr, "eglGetProcAddress(\"eglQueryDeviceAttribEXT\") failed");
+        fprintf(stderr, "eglGetProcAddress(\"eglQueryDeviceAttribEXT\") failed\n\n\n");
+        std::cout << "ERRRRROOOOORRRRR" << std::endl ;
         return 0;
     }
 
     eglGetPlatformDisplayEXT_t eglGetPlatformDisplayEXT = (eglGetPlatformDisplayEXT_t)eglGetProcAddress("eglGetPlatformDisplayEXT");
     if (!eglGetPlatformDisplayEXT)
     {
-        fprintf(stderr, "eglGetProcAddress(\"eglGetPlatformDisplayEXT\") failed");
+        fprintf(stderr, "eglGetProcAddress(\"eglGetPlatformDisplayEXT\") failed\n\n\n");
         return 0;
     }
 
     int num_devices = 0;
-    eglQueryDevicesEXT(0, 0, &num_devices);
+    EGLBoolean result = eglQueryDevicesEXT(0, 0, &num_devices);
+    std::cout << result << std::endl;
+    if (result == EGL_FALSE){
+        std::cout << "no EGL devices found\n";
+    }
     if (!num_devices)
+    {
+        fprintf(stderr,"No EGL Devices Extensions regsiertered");
+        std::cout << "ERRRRROOOOORRRRR" << std::endl ;
         return 0;
-
+    }
     EGLDisplay display = 0;
     EGLDeviceEXT* devices = (EGLDeviceEXT*)malloc(num_devices * sizeof(void*));
-    eglQueryDevicesEXT(num_devices, devices, &num_devices);
+    std::cout << "EGL STATUS" << eglQueryDevicesEXT(num_devices, devices, &num_devices) << std::endl;
+    std::cout << "->" << num_devices << "," << devices << "," << num_devices << std::endl;
+    printf("num = %d \n", num_devices);
     for (int i=0; i < num_devices; i++)
     {
+
         EGLDeviceEXT device = devices[i];
         intptr_t value = -1;
-        if (eglQueryDeviceAttribEXT(device, EGL_CUDA_DEVICE_NV, &value) && value == cudaDeviceIdx)
+        
+        //auto status = eglQueryDeviceAttribEXT(device, EGL_CUDA_DEVICE_NV, &value);
+        EGLBoolean status = eglQueryDeviceAttribEXT(device, EGL_CUDA_DEVICE_NV, &value);
+        if(status == EGL_FALSE){
+            std::cout << "Fehler: eglQueryDeviceAttribEXT konnte nicht erfolgreich ausgeführt werden.\n" << std::endl;
+        }
+        
+        EGLint errorCode = eglGetError();
+        if(!status){
+            std::cout << "ERROR CODE: " << errorCode <<std::endl;
+        }
+        if(errorCode == EGL_BAD_ATTRIBUTE){
+            std::cout << "BAD ATTRIBUTE\n";
+        }
+        if(errorCode == EGL_BAD_DISPLAY){
+            std::cout << "EGL_BAD_DISPLAY\n";
+        }
+        if(errorCode == EGL_CONTEXT_LOST){
+            std::cout << "EGL_CONTEXT_LOST\n";
+        }
+        if(errorCode == EGL_BAD_ACCESS){
+            std::cout << "EGL_BAD_ACCESS\n";
+        }
+        if(errorCode == EGL_NOT_INITIALIZED){
+            std::cout << "EGL_NOT_INITIALIZED\n";
+        }
+        if(errorCode == EGL_BAD_ALLOC){
+            std::cout << "EGL_BAD_ALLOC\n";
+        }
+        std::cout << "STATUS: " << status << " , " << value << " , " << device << std::endl ;
+        std::cout << eglQueryDeviceAttribEXT << std::endl;
+        if (status )//&& value == cudaDeviceIdx)
         {
             display = eglGetPlatformDisplayEXT(EGL_PLATFORM_DEVICE_EXT, device, 0);
+            std::cout << "reingegangenSSSSSSSSSSSSSSSSSSS" << std::endl;
             break;
         }
     }
-
     free(devices);
+    std::cout << "DDDDDDDDDDIIIIIIIIIIIISSSSSSSSSSSPPPPPPPPPPAAAALLLLLYS:" << display <<std::endl;
     return display;
 }
 
@@ -121,6 +174,15 @@ public:
 
         m_data = new EGLInternalData2();
 
+        cudaError_t cudaStatus;
+        cudaStatus = cudaSetDevice(m_renderDevice);
+        if (cudaStatus != cudaSuccess) {
+            fprintf(stderr, "cudaSetDevice failed!  Do you have a CUDA-capable GPU installed?");
+            exit(EXIT_FAILURE);
+        } 
+        std::cout <<  "cudaSetDevice SET DEVICE SUCCESSFULLLL\n" << std::endl;
+
+
         EGLint egl_config_attribs[] = {
             EGL_RED_SIZE,           8,
             EGL_GREEN_SIZE,         8,
@@ -144,9 +206,13 @@ public:
             char pciBusId[256] = "";
             printf("Creating GL context for Cuda device %d\n;", m_renderDevice);
             m_data->egl_display = getCudaDisplay(m_renderDevice);
+            fprintf(stderr,"TTTstststststs");
+            std::cout << "m_dtata: " << m_data->egl_display << std::endl;
             if (!m_data->egl_display)
                 fprintf(stderr, "Failed, falling back to default display");
         }
+
+
 
         if (!m_data->egl_display)
         {
@@ -209,6 +275,8 @@ public:
         printf("GL_VERSION=%s\n", ver);
         const GLubyte* sl = glGetString(GL_SHADING_LANGUAGE_VERSION);
         printf("GL_SHADING_LANGUAGE_VERSION=%s\n", sl);
+        const GLubyte* gl_ext = glGetString(GL_EXTENSIONS);
+        printf("GL_EXTENSIONS=%s\n",gl_ext);
     }
 
     void release() {
@@ -267,6 +335,7 @@ public:
                 printf("cuda res: %d not null\n", i);
             }
         }*/
+        std::cout << "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT" << std::endl;
         if (cuda_res[tid] == NULL) {
             err = cudaGraphicsGLRegisterImage(&(cuda_res[tid]), tid, GL_TEXTURE_2D, cudaGraphicsMapFlagsNone);
             if( err != cudaSuccess ) {

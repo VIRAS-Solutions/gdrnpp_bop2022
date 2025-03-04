@@ -4,6 +4,8 @@ import mmcv
 from detectron2.data import DatasetCatalog
 from . import (
     lm_pbr,
+    lm_random_texture_all_pbr,
+    lm_bop_test,
     lmo_bop_test,
     ycbv_pbr,
     ycbv_d2,
@@ -16,12 +18,18 @@ from . import (
     tudl_bop_test,
     tless_primesense_train,
     tless_pbr,
+    tless_random_texture_pbr,
     tless_bop_test,
     icbin_pbr,
     icbin_bop_test,
     itodd_pbr,
+    itodd_random_texture_pbr,
     itodd_d2,
     itodd_bop_test,
+    tracebot_pbr,
+    tracebot_bop_test,
+    lmo_random_texture_all_pbr,
+    dft_labor
 )  # noqa
 
 cur_dir = osp.dirname(osp.abspath(__file__))
@@ -35,6 +43,8 @@ __all__ = [
 ]
 _DSET_MOD_NAMES = [
     "lm_pbr",
+    "lm_random_texture_all_pbr",
+    "lm_bop_test",
     "lmo_bop_test",
     "ycbv_pbr",
     "ycbv_d2",
@@ -47,12 +57,18 @@ _DSET_MOD_NAMES = [
     "tudl_bop_test",
     "tless_primesense_train",
     "tless_pbr",
+    "tless_random_texture_pbr",
     "tless_bop_test",
     "icbin_pbr",
     "icbin_bop_test",
     "itodd_pbr",
+    "itodd_random_texture_pbr",
     "itodd_d2",
     "itodd_bop_test",
+    "tracebot_pbr",
+    "tracebot_bop_test",
+    "lmo_random_texture_all_pbr",
+    "dft_labor"
 ]
 
 logger = logging.getLogger(__name__)
@@ -73,6 +89,7 @@ def get_available_datasets(mod_name):
 
 
 def register_datasets_in_cfg(cfg):
+    print(cfg)
     for split in [
         "TRAIN",
         "TEST",
@@ -89,6 +106,8 @@ def register_datasets_in_cfg(cfg):
             # try to find in pre-defined datasets
             # NOTE: it is better to let all datasets pre-refined
             for _mod_name in _DSET_MOD_NAMES:
+                #print(f"{name},{_mod_name}")
+                #print(get_available_datasets(_mod_name))
                 if name in get_available_datasets(_mod_name):
                     register_dataset(_mod_name, name, data_cfg=None)
                     registered = True
@@ -105,7 +124,9 @@ def register_datasets_in_cfg(cfg):
                 mod_name = data_cfg.pop("mod_name", None)
                 assert mod_name in _DSET_MOD_NAMES, mod_name
                 register_dataset(mod_name, name, data_cfg)
-
+                #print("test")
+                #quit()
+    #quit()
 
 def register_datasets(dataset_names):
     for name in dataset_names:
@@ -119,7 +140,7 @@ def register_datasets(dataset_names):
                 register_dataset(_mod_name, name, data_cfg=None)
                 registered = True
                 break
-
+            
         # not in pre-defined; not recommend
         if not registered:
             raise ValueError(f"dataset {name} is not defined")

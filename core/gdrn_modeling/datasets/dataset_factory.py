@@ -1,37 +1,42 @@
-"""Register datasets in this file will be imported in project root to register
-the datasets."""
 import logging
-import os
 import os.path as osp
 import mmcv
-import detectron2.utils.comm as comm
-import ref
-from detectron2.data import DatasetCatalog, MetadataCatalog
+from detectron2.data import DatasetCatalog
 from core.gdrn_modeling.datasets import (
     lm_pbr,
     lmo_bop_test,
     ycbv_pbr,
+    ycbv_pbr_random_texture,
     ycbv_d2,
     ycbv_bop_test,
     hb_pbr,
     hb_bop_val,
     hb_bop_test,
     tudl_pbr,
-    tudl_d2,
     tudl_bop_test,
     tless_pbr,
-    tless_d2,
     tless_bop_test,
     icbin_pbr,
     icbin_bop_test,
     itodd_pbr,
-    itodd_bop_test,
     itodd_d2,
-)
-
+    itodd_bop_test,
+    tracebot_pbr,
+    tracebot_bop_test,
+    lmo_pbr_random_texture,
+    lmo_pbr_random_texture_all,
+    lmo_pbr_random_texture_no_bump,
+    lmo_pbr_random_texture_no_displacement,
+    lmo_3r_pbr,
+    lmo_3r_1o_pbr,
+    lmo_5r_pbr,
+    lmo_5r_1o_pbr,
+    dft_labor
+)  # noqa
 
 cur_dir = osp.dirname(osp.abspath(__file__))
 # from lib.utils.utils import iprint
+
 __all__ = [
     "register_dataset",
     "register_datasets",
@@ -42,22 +47,32 @@ _DSET_MOD_NAMES = [
     "lm_pbr",
     "lmo_bop_test",
     "ycbv_pbr",
+    "ycbv_pbr_random_texture",
     "ycbv_d2",
     "ycbv_bop_test",
     "hb_pbr",
     "hb_bop_val",
     "hb_bop_test",
     "tudl_pbr",
-    "tudl_d2",
     "tudl_bop_test",
     "tless_pbr",
-    "tless_d2",
     "tless_bop_test",
     "icbin_pbr",
     "icbin_bop_test",
     "itodd_pbr",
-    "itodd_bop_test",
     "itodd_d2",
+    "itodd_bop_test",
+    "tracebot_pbr",
+    "tracebot_bop_test",
+    "lmo_pbr_random_texture",
+    "lmo_pbr_random_texture_all",
+    "lmo_pbr_random_texture_no_bump",
+    "lmo_pbr_random_texture_no_displacement",
+    "lmo_3r_pbr",
+    "lmo_3r_1o_pbr",
+    "lmo_5r_pbr",
+    "lmo_5r_1o_pbr",
+    "dft_labor"
 ]
 
 logger = logging.getLogger(__name__)
@@ -94,6 +109,8 @@ def register_datasets_in_cfg(cfg):
             # try to find in pre-defined datasets
             # NOTE: it is better to let all datasets pre-refined
             for _mod_name in _DSET_MOD_NAMES:
+                #print(f"{name},{_mod_name}")
+                #print(get_available_datasets(_mod_name))
                 if name in get_available_datasets(_mod_name):
                     register_dataset(_mod_name, name, data_cfg=None)
                     registered = True
@@ -110,9 +127,13 @@ def register_datasets_in_cfg(cfg):
                 mod_name = data_cfg.pop("mod_name", None)
                 assert mod_name in _DSET_MOD_NAMES, mod_name
                 register_dataset(mod_name, name, data_cfg)
+                
+                
+    
 
 
 def register_datasets(dataset_names):
+    print(DatasetCatalog.list())
     for name in dataset_names:
         if name in DatasetCatalog.list():
             continue
@@ -124,7 +145,7 @@ def register_datasets(dataset_names):
                 register_dataset(_mod_name, name, data_cfg=None)
                 registered = True
                 break
-
+        print(get_available_datasets("dft_labor"))
         # not in pre-defined; not recommend
         if not registered:
             raise ValueError(f"dataset {name} is not defined")

@@ -4,7 +4,6 @@ import numpy as np
 import mmcv
 import itertools
 from einops import rearrange
-from lib.egl_renderer.egl_renderer_v3 import EGLRenderer
 from core.utils.camera_geometry import get_K_crop_resize
 from core.utils.data_utils import xyz_to_region_batch
 from lib.vis_utils.image import grid_show
@@ -146,6 +145,7 @@ def batch_data_train_online(cfg, data, renderer, device="cuda"):
                 pc_cam_tensor=pc_cam_tensor,
             )
             roi_depth_batch[_i].copy_(pc_cam_tensor[:, :, 2], non_blocking=True)
+            print(pc_cam_tensor)
         roi_xyz_batch = misc.calc_xyz_bp_batch(
             roi_depth_batch,
             batch["ego_rot"],
@@ -170,6 +170,8 @@ def batch_data_train_online(cfg, data, renderer, device="cuda"):
                 pc_obj_tensor=pc_obj_tensor,
             )
             roi_xyz_batch[_i].copy_(pc_obj_tensor[:, :, :3], non_blocking=True)
+            print(pc_obj_tensor)
+            quit()
 
     # [bs, out_res, out_res]
     batch["roi_mask_obj"] = (
@@ -268,6 +270,9 @@ def batch_data_inference_roi(cfg, data, device='cuda'):
 
 def get_renderer(cfg, data_ref, obj_names, gpu_id=None):
     """for rendering the targets (xyz) online."""
+    #from lib.egl_renderer.egl_renderer_v2 import EGLRenderer
+    from lib.egl_renderer.egl_renderer_v3 import EGLRenderer
+    
     model_dir = data_ref.model_dir
 
     obj_ids = [data_ref.obj2id[_obj] for _obj in obj_names]
