@@ -21,16 +21,6 @@ from core.gdrn_modeling.datasets import (
     itodd_pbr,
     itodd_d2,
     itodd_bop_test,
-    tracebot_pbr,
-    tracebot_bop_test,
-    lmo_pbr_random_texture,
-    lmo_pbr_random_texture_all,
-    lmo_pbr_random_texture_no_bump,
-    lmo_pbr_random_texture_no_displacement,
-    lmo_3r_pbr,
-    lmo_3r_1o_pbr,
-    lmo_5r_pbr,
-    lmo_5r_1o_pbr,
     dft_labor
 )  # noqa
 
