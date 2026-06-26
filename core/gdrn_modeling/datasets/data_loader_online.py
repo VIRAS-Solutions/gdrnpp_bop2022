@@ -240,7 +240,10 @@ class GDRN_Online_DatasetFromList(Base_DatasetFromList):
         num = np.inf
         for i, obj_name in enumerate(objs):
             obj_id = data_ref.obj2id[obj_name]
-            model_path = osp.join(data_ref.model_dir, f"obj_{obj_id:06d}.ply")
+            if hasattr(data_ref, "get_model_path"):
+                model_path = data_ref.get_model_path(obj_id)
+            else:
+                model_path = osp.join(data_ref.model_dir, f"obj_{obj_id:06d}.ply")
             model = inout.load_ply(model_path, vertex_scale=data_ref.vertex_scale)
             cur_model_points[i] = pts = model["pts"]
             if pts.shape[0] < num:
@@ -275,7 +278,10 @@ class GDRN_Online_DatasetFromList(Base_DatasetFromList):
         cur_extents = {}
         for i, obj_name in enumerate(objs):
             obj_id = data_ref.obj2id[obj_name]
-            model_path = osp.join(data_ref.model_dir, f"obj_{obj_id:06d}.ply")
+            if hasattr(data_ref, "get_model_path"):
+                model_path = data_ref.get_model_path(obj_id)
+            else:
+                model_path = osp.join(data_ref.model_dir, f"obj_{obj_id:06d}.ply")
             model = inout.load_ply(model_path, vertex_scale=data_ref.vertex_scale)
             pts = model["pts"]
             xmin, xmax = np.amin(pts[:, 0]), np.amax(pts[:, 0])

@@ -21,7 +21,8 @@ from core.gdrn_modeling.datasets import (
     itodd_pbr,
     itodd_d2,
     itodd_bop_test,
-    dft_labor
+    dft_labor,
+    viras_localization,
 )  # noqa
 
 cur_dir = osp.dirname(osp.abspath(__file__))
@@ -62,7 +63,8 @@ _DSET_MOD_NAMES = [
     "lmo_3r_1o_pbr",
     "lmo_5r_pbr",
     "lmo_5r_1o_pbr",
-    "dft_labor"
+    "dft_labor",
+    "viras_localization",
 ]
 
 logger = logging.getLogger(__name__)

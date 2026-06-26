@@ -19,12 +19,18 @@ model_dir = data_ref.model_dir
 id2obj = data_ref.id2obj
 
 
+def _resolve_model_path(obj_id: int) -> str:
+    if hasattr(data_ref, "get_model_path"):
+        return data_ref.get_model_path(obj_id)
+    return osp.join(model_dir, f"obj_{obj_id:06d}.ply")
+
+
 def main():
     vertex_scale = 0.001
     fps_dict = {}
     for obj_id in tqdm(id2obj):
         print(obj_id)
-        model_path = osp.join(model_dir, f"obj_{obj_id:06d}.ply")
+        model_path = _resolve_model_path(obj_id)
         model = inout.load_ply(model_path, vertex_scale=vertex_scale)
         fps_dict[str(obj_id)] = {}
         fps_dict[str(obj_id)]["fps4_and_center"] = get_fps_and_center(model["pts"], num_fps=4, init_center=True)
