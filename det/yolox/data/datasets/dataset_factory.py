@@ -26,8 +26,6 @@ from . import (
     itodd_random_texture_pbr,
     itodd_d2,
     itodd_bop_test,
-    tracebot_pbr,
-    tracebot_bop_test,
     lmo_random_texture_all_pbr,
     dft_labor
 )  # noqa
@@ -65,8 +63,6 @@ _DSET_MOD_NAMES = [
     "itodd_random_texture_pbr",
     "itodd_d2",
     "itodd_bop_test",
-    "tracebot_pbr",
-    "tracebot_bop_test",
     "lmo_random_texture_all_pbr",
     "dft_labor"
 ]
