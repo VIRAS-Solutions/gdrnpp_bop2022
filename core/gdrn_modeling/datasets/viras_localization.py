@@ -82,8 +82,19 @@ class VIRASDataset:
 
         if self.use_cache and osp.exists(cache_path):
             logger.info("load cached dataset dicts from %s", cache_path)
-            return mmcv.load(cache_path)
+            cached_dicts = mmcv.load(cache_path)
+            if not cached_dicts:
+                logger.warning("Cached dataset is EMPTY - regenerating from scratch")
+                # Delete the poisoned cache file
+                try:
+                    os.remove(cache_path)
+                except Exception:
+                    pass
+            else:
+                logger.info("Loaded %d records from cache", len(cached_dicts))
+                return cached_dicts
 
+        logger.info("[VIRAS] Generating dataset from scratch for split=%s, dataset_path=%s", self.split, self.dataset_path)
         t_start = time.perf_counter()
         reader = UnifiedDatasetReader(self.dataset_path)
         adapter = GdrnppLocalizationAdapter(reader, self.split)
@@ -128,9 +139,16 @@ class VIRASDataset:
                 rec["annotations"] = converted_annotations
                 dataset_dicts.append(rec)
 
-        logger.info("loaded %d VIRAS records in %.2fs", len(dataset_dicts), time.perf_counter() - t_start)
-        mmcv.mkdir_or_exist(osp.dirname(cache_path))
-        mmcv.dump(dataset_dicts, cache_path, protocol=4)
+        logger.info("[VIRAS] loaded %d records in %.2fs", len(dataset_dicts), time.perf_counter() - t_start)
+        
+        # Only cache if we have data - avoid saving empty cache files
+        if dataset_dicts:
+            mmcv.mkdir_or_exist(osp.dirname(cache_path))
+            mmcv.dump(dataset_dicts, cache_path, protocol=4)
+            logger.info("[VIRAS] Cached %d records to %s", len(dataset_dicts), cache_path)
+        else:
+            logger.warning("[VIRAS] Dataset is empty - NOT caching to avoid poisoning future runs")
+        
         return dataset_dicts
 
 
@@ -170,7 +188,6 @@ def get_viras_metadata(obj_names, ref_key):
 
 
 def register_with_name_cfg(name, data_cfg=None):
-    print(f"Registering dataset {name} with data_cfg: {data_cfg}")
     if name in SPLITS_DATA:
         used_cfg = dict(SPLITS_DATA[name])
         if data_cfg is not None:
