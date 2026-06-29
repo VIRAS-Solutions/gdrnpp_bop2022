@@ -60,6 +60,8 @@ class EGLRenderer(object):
         use_cache=False,
         cad_model_colors=None,
     ):
+        print("####################1")
+        quit()
         if model_loadfn == "pyassimp":
             self.model_load_fn = load_mesh_pyassimp
         elif model_loadfn == "pysixd":
@@ -114,6 +116,7 @@ class EGLRenderer(object):
         self.is_cad_list = []
 
         shader_types = {
+            "shader_simple": ("shader_simple.vs", "shader_simple.frag"),
             "shader_bbox": ("shader_bbox.vs", "shader_bbox.frag"),
             "shader_textureless_texture": (
                 "shader_textureless_texture.vs",
@@ -302,7 +305,9 @@ class EGLRenderer(object):
 
         self.V = np.ascontiguousarray(V, np.float32)
         self.P = np.ascontiguousarray(P, np.float32)
-        self.grid = self.generate_grid()
+        self.grid = None
+        if self.render_marker:
+            self.grid = self.generate_grid()
 
         # self.bg_VAO, self.bg_indices = self.set_bg_buffers()
 
@@ -1391,7 +1396,7 @@ def test_ycb_render():
         model_colors=colors,
         width=width,
         height=height,
-        render_marker=True,
+        render_marker=False,
         robot=robot_name,
         use_cache=True,
     )

@@ -93,7 +93,6 @@ class EGLRenderer(object):
         self.r = CppEGLRenderer.CppEGLRenderer(width, height, cuda_device_idx)
         print(self.r.init())
         print(self.r.query())
-        quit()
         self.r.init()
         self.glstring = GL.glGetString(GL.GL_VERSION)
         print(self.glstring)
@@ -102,6 +101,7 @@ class EGLRenderer(object):
         self.shaders = shaders
 
         shader_types = {
+            "shader_simple": ("shader_simple.vs", "shader_simple.frag"),
             "shader_bbox": ("shader_bbox.vs", "shader_bbox.frag"),
             "shader_textureless_texture": (
                 "shader_textureless_texture.vs",
@@ -291,7 +291,9 @@ class EGLRenderer(object):
 
         self.V = np.ascontiguousarray(V, np.float32)
         self.P = np.ascontiguousarray(P, np.float32)
-        self.grid = self.generate_grid()
+        self.grid = None
+        if self.render_marker:
+            self.grid = self.generate_grid()
 
         # self.bg_VAO, self.bg_indices = self.set_bg_buffers()
         self.set_camera_default()

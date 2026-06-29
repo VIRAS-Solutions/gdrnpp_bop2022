@@ -2,14 +2,27 @@ import argparse
 import os
 import os.path as osp
 import sys
-import mmcv
-from mmcv import DictAction
 import torch
 import PIL
 from detectron2.utils.env import seed_all_rng
 from detectron2.utils.file_io import PathManager
 from detectron2.utils.collect_env import collect_env_info
 from loguru import logger
+
+# Monkey-patch yapf FormatCode for mmcv compatibility (yapf >= 0.30 doesn't support verify kwarg)
+try:
+    import yapf.yapflib.reformatter as reformatter
+    _original_format_code = reformatter.FormatCode
+    def _patched_format_code(unformatted_source, *args, **kwargs):
+        kwargs.pop('verify', None)  # Remove verify kwarg if present
+        return _original_format_code(unformatted_source, *args, **kwargs)
+    reformatter.FormatCode = _patched_format_code
+except Exception:
+    pass  # If yapf is not available or patching fails, continue anyway
+
+import mmcv
+from mmcv import DictAction
+
 
 from lib.utils.setup_logger import setup_my_logger
 from lib.utils.time_utils import get_time_str
@@ -142,6 +155,7 @@ def my_default_setup(cfg, args):
         path = osp.join(output_dir, osp.basename(args.config_file))
         cfg.dump(path)
         logger.info("Full config saved to {}".format(path))
+        
 
     assert (
         args.num_gpus <= torch.cuda.device_count() and args.num_gpus >= 1

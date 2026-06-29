@@ -2,6 +2,9 @@ from loguru import logger as loguru_logger
 import logging
 import os
 
+logging.getLogger("PIL").setLevel(logging.WARNING)
+logging.getLogger("PIL.PngImagePlugin").setLevel(logging.WARNING)
+
 os.environ["PYOPENGL_PLATFORM"] = "egl"
 import os.path as osp
 import sys
@@ -142,7 +145,6 @@ class Lite(GDRN_Lite):
 
     def run(self, args, cfg):
         self.set_my_env(args, cfg)
-
         # get renderer ----------------------
         if args.eval_only or cfg.TEST.SAVE_RESULTS_ONLY or (not cfg.MODEL.POSE_NET.XYZ_ONLINE):
             renderer = None
@@ -189,7 +191,7 @@ class Lite(GDRN_Lite):
         return self.do_test(cfg, model)
 
 
-@loguru_logger.catch
+#@loguru_logger.catch(reraise=True)
 def main(args):
     cfg = setup(args)
 

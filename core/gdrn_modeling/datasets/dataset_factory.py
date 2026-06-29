@@ -94,7 +94,13 @@ def register_datasets_in_cfg(cfg):
                 #print(f"{name},{_mod_name}")
                 #print(get_available_datasets(_mod_name))
                 if name in get_available_datasets(_mod_name):
-                    register_dataset(_mod_name, name, data_cfg=None)
+                    # Check if DATA_CFG is available (e.g., for viras_localization)
+                    data_cfg_to_use = None
+                    if "DATA_CFG" in cfg and name in cfg.DATA_CFG:
+                        assert osp.exists(cfg.DATA_CFG[name])
+                        data_cfg_to_use = mmcv.load(cfg.DATA_CFG[name])
+                        data_cfg_to_use.pop("mod_name", None)  # remove mod_name key
+                    register_dataset(_mod_name, name, data_cfg=data_cfg_to_use)
                     registered = True
                     break
             # not in pre-defined; not recommend

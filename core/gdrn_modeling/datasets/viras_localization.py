@@ -170,6 +170,7 @@ def get_viras_metadata(obj_names, ref_key):
 
 
 def register_with_name_cfg(name, data_cfg=None):
+    print(f"Registering dataset {name} with data_cfg: {data_cfg}")
     if name in SPLITS_DATA:
         used_cfg = dict(SPLITS_DATA[name])
         if data_cfg is not None:
