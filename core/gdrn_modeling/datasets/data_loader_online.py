@@ -525,10 +525,21 @@ class GDRN_Online_DatasetFromList(Base_DatasetFromList):
         ## roi_mask ---------------------------------------
         # (mask_trunc < mask_visib < mask_obj)
         mask_visib = anno["segmentation"].astype("float32")
+        
+        # VIRAS: Ensure mask dimensions match current image size (im_H, im_W)
+        # The annotation mask might have different size than current image if transforms were applied
+        if mask_visib.shape[0] != im_H or mask_visib.shape[1] != im_W:
+            mask_visib = mmcv.imresize(mask_visib, (im_W, im_H), interpolation="nearest")
 
         if mask_trunc is None:
             mask_trunc = mask_visib
         else:
+            # Ensure mask_trunc is float32 before operations (cv2.resize doesn't support bool)
+            if mask_trunc.dtype == bool or str(mask_trunc.dtype) == 'bool_':
+                mask_trunc = mask_trunc.astype(np.float32)
+            # Also ensure mask_trunc has correct size before multiplication
+            if mask_trunc.shape[0] != im_H or mask_trunc.shape[1] != im_W:
+                mask_trunc = mmcv.imresize(mask_trunc, (im_W, im_H), interpolation="nearest")
             mask_trunc = mask_visib * mask_trunc.astype("float32")
 
         if cfg.TRAIN.VIS:

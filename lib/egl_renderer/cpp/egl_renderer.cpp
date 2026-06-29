@@ -56,7 +56,6 @@ static EGLDisplay getCudaDisplay(int cudaDeviceIdx)
     if (!eglQueryDevicesEXT)
     {
         fprintf(stderr, "eglGetProcAddress(\"eglQueryDevicesEXT\") failed\n\n\n");
-        std::cout << "ERRRRROOOOORRRRR" << std::endl ;
         return 0;
     }
     // Testaufruf der Funktion
@@ -68,11 +67,9 @@ static EGLDisplay getCudaDisplay(int cudaDeviceIdx)
         std::cout << "Fehler: eglQueryDevicesEXT konnte nicht erfolgreich ausgeführt werden.\n";
     }
     eglQueryDeviceAttribEXT_t eglQueryDeviceAttribEXT = (eglQueryDeviceAttribEXT_t)eglGetProcAddress("eglQueryDeviceAttribEXT");
-    std::cout << "TESTESTESTESTESTESTESTJGHGHJ" << *eglQueryDeviceAttribEXT << eglQueryDeviceAttribEXT << std::endl;
     if (eglQueryDeviceAttribEXT == NULL)
     {
         fprintf(stderr, "eglGetProcAddress(\"eglQueryDeviceAttribEXT\") failed\n\n\n");
-        std::cout << "ERRRRROOOOORRRRR" << std::endl ;
         return 0;
     }
 
@@ -85,14 +82,12 @@ static EGLDisplay getCudaDisplay(int cudaDeviceIdx)
 
     int num_devices = 0;
     EGLBoolean result = eglQueryDevicesEXT(0, 0, &num_devices);
-    std::cout << result << std::endl;
     if (result == EGL_FALSE){
         std::cout << "no EGL devices found\n";
     }
     if (!num_devices)
     {
         fprintf(stderr,"No EGL Devices Extensions regsiertered");
-        std::cout << "ERRRRROOOOORRRRR" << std::endl ;
         return 0;
     }
     EGLDisplay display = 0;
@@ -139,12 +134,10 @@ static EGLDisplay getCudaDisplay(int cudaDeviceIdx)
         if (status )//&& value == cudaDeviceIdx)
         {
             display = eglGetPlatformDisplayEXT(EGL_PLATFORM_DEVICE_EXT, device, 0);
-            std::cout << "reingegangenSSSSSSSSSSSSSSSSSSS" << std::endl;
             break;
         }
     }
     free(devices);
-    std::cout << "DDDDDDDDDDIIIIIIIIIIIISSSSSSSSSSSPPPPPPPPPPAAAALLLLLYS:" << display <<std::endl;
     return display;
 }
 
@@ -206,8 +199,6 @@ public:
             char pciBusId[256] = "";
             printf("Creating GL context for Cuda device %d\n;", m_renderDevice);
             m_data->egl_display = getCudaDisplay(m_renderDevice);
-            fprintf(stderr,"TTTstststststs");
-            std::cout << "m_dtata: " << m_data->egl_display << std::endl;
             if (!m_data->egl_display)
                 fprintf(stderr, "Failed, falling back to default display");
         }
@@ -335,7 +326,6 @@ public:
                 printf("cuda res: %d not null\n", i);
             }
         }*/
-        std::cout << "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT" << std::endl;
         if (cuda_res[tid] == NULL) {
             err = cudaGraphicsGLRegisterImage(&(cuda_res[tid]), tid, GL_TEXTURE_2D, cudaGraphicsMapFlagsNone);
             if( err != cudaSuccess ) {

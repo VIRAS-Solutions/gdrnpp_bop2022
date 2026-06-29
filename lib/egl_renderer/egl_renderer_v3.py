@@ -677,7 +677,6 @@ class EGLRenderer(object):
                 if mesh.faces.shape[-1] != 3:  # ignore boundLineSet
                     continue
                 mat = mesh.material
-                pprint(vars(mat))
                 mat_diffuse = np.array(mat.properties["diffuse"])[:3]
 
                 if "specular" in mat.properties:
@@ -1224,13 +1223,6 @@ class EGLRenderer(object):
             )
             pc_obj_tensor.data = torch.flip(pc_obj_tensor, (0,))
         if pc_cam_tensor is not None:
-            print("AAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
-            print(self.color_tex_5)
-            print(self.width)
-            print(self.height)
-            print(pc_cam_tensor.cpu().numpy().shape)
-            print(self.glstring)
-            print(self.r)
             self.r.map_tensor(
                 int(self.color_tex_5),
                 int(self.width),
@@ -1578,5 +1570,5 @@ if __name__ == "__main__":
                 ]
                 grid_show(show_ims, show_titles, row=2, col=3)
 
-    print("{}s {}fps".format(t_render / runs, runs / t_render))
+    #print("{}s {}fps".format(t_render / runs, runs / t_render))
     renderer.close()

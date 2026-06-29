@@ -145,7 +145,7 @@ def batch_data_train_online(cfg, data, renderer, device="cuda"):
                 pc_cam_tensor=pc_cam_tensor,
             )
             roi_depth_batch[_i].copy_(pc_cam_tensor[:, :, 2], non_blocking=True)
-            print(pc_cam_tensor)
+            #print(pc_cam_tensor)
         roi_xyz_batch = misc.calc_xyz_bp_batch(
             roi_depth_batch,
             batch["ego_rot"],
@@ -170,8 +170,8 @@ def batch_data_train_online(cfg, data, renderer, device="cuda"):
                 pc_obj_tensor=pc_obj_tensor,
             )
             roi_xyz_batch[_i].copy_(pc_obj_tensor[:, :, :3], non_blocking=True)
-            print(pc_obj_tensor)
-            quit()
+            #print(pc_obj_tensor)
+            #quit()
 
     # [bs, out_res, out_res]
     batch["roi_mask_obj"] = (

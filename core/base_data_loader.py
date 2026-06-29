@@ -357,7 +357,10 @@ class Base_DatasetFromList(data.Dataset):
             return bg_img_paths
 
         logger.info("building bg imgs cache {}...".format(bg_type))
-        assert osp.exists(bg_root), f"BG ROOT: {bg_root} does not exist"
+        # VIRAS: If BG root doesn't exist (e.g., VOC2012), return empty list instead of failing
+        if not osp.exists(bg_root):
+            logger.warning(f"BG ROOT not found: {bg_root} - Background replacement will be skipped")
+            return []
         if bg_type == "coco":
             img_paths = [
                 osp.join(bg_root, fn.name) for fn in os.scandir(bg_root) if ".png" in fn.name or "jpg" in fn.name
@@ -414,12 +417,26 @@ class Base_DatasetFromList(data.Dataset):
         cfg = self.cfg
         # add background to the image
         H, W = im.shape[:2]
-        ind = random.randint(0, len(self._bg_img_paths) - 1)
+        
+        # VIRAS: Fallback - if no background images available, return original image
+        bg_paths = self._bg_img_paths
+        if len(bg_paths) == 0:
+            # No background images available - return original image/mask as-is
+            rets = [im.astype(np.uint8)]
+            if with_bg_depth:
+                rets.append(np.zeros((H, W), dtype=np.uint16))  # dummy depth
+            if return_mask:
+                # Return mask as bool (matching the real code's type)
+                mask = im_mask.copy().astype(np.bool_)
+                rets.append(mask)
+            return tuple(rets) if len(rets) > 1 else rets[0]
+        
+        ind = random.randint(0, len(bg_paths) - 1)
         if with_bg_depth:
-            filename, depth_path, K_path = self._bg_img_paths[ind]
+            filename, depth_path, K_path = bg_paths[ind]
             depth_factor = try_get_key(cfg, "INPUT.BG_DEPTH_FACTOR", "bg_depth_factor")
         else:
-            filename = self._bg_img_paths[ind]
+            filename = bg_paths[ind]
             depth_path = None
             K_path = None
             depth_factor = None
@@ -437,7 +454,7 @@ class Base_DatasetFromList(data.Dataset):
             bg_img = np.zeros((H, W, 3), dtype=np.uint8)
             logger.warning("bad background image: {}".format(filename))
 
-        mask = im_mask.copy().astype(np.bool)
+        mask = im_mask.copy().astype(np.bool_)
         if truncate_fg:
             mask = self.trunc_mask(im_mask)
         mask_bg = ~mask
