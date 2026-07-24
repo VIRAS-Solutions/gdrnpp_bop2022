@@ -27,6 +27,7 @@ if not dataset_root:
 
 data_root = osp.dirname(dataset_root)
 model_dir = os.environ.get("VIRAS_GDRN_MODELS_ROOT", osp.join(dataset_root, "models"))
+model_eval_dir = model_dir  # For evaluation, use the same models as for training (prepared_models with filtering applied)
 vertex_scale = float(os.environ.get("VIRAS_GDRN_VERTEX_SCALE", "1.0"))
 extra_model_roots = [p for p in os.environ.get("VIRAS_GDRN_MODEL_SEARCH_ROOTS", "").split(":") if p]
 

@@ -55,8 +55,9 @@ class GDRN_Evaluator(DatasetEvaluator):
         self.obj_ids = [self.data_ref.obj2id[obj_name] for obj_name in self.obj_names]
         # with contextlib.redirect_stdout(io.StringIO()):
         #     self._coco_api = COCO(self._metadata.json_file)
+        # Use get_model_path() to respect the local_category_id mapping (for filtered objects)
         self.model_paths = [
-            osp.join(self.data_ref.model_eval_dir, "obj_{:06d}.ply".format(obj_id)) for obj_id in self.obj_ids
+            self.data_ref.get_model_path(obj_id) for obj_id in self.obj_ids
         ]
         self.models_3d = [
             inout.load_ply(model_path, vertex_scale=self.data_ref.vertex_scale) for model_path in self.model_paths
