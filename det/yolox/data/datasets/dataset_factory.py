@@ -120,9 +120,6 @@ def register_datasets_in_cfg(cfg):
                 mod_name = data_cfg.pop("mod_name", None)
                 assert mod_name in _DSET_MOD_NAMES, mod_name
                 register_dataset(mod_name, name, data_cfg)
-                #print("test")
-                #quit()
-    #quit()
 
 def register_datasets(dataset_names):
     for name in dataset_names:

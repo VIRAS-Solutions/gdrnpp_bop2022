@@ -24,6 +24,7 @@ dataset_root = os.environ.get("VIRAS_GDRN_DATASET_PATH", "")
 if not dataset_root:
     raise RuntimeError("VIRAS_GDRN_DATASET_PATH is required for ref.viras")
 
+
 data_root = osp.dirname(dataset_root)
 model_dir = os.environ.get("VIRAS_GDRN_MODELS_ROOT", osp.join(dataset_root, "models"))
 vertex_scale = float(os.environ.get("VIRAS_GDRN_VERTEX_SCALE", "1.0"))
@@ -101,26 +102,15 @@ def _iter_search_roots():
 
 
 def get_model_path(obj_id: int) -> str:
-    print(f"\n[DIAG] get_model_path() called for obj_id={obj_id}")
-    print(f"[DIAG]   model_dir={model_dir}")
-    print(f"[DIAG]   dataset_root={dataset_root}")
-    print(f"[DIAG]   obj_id_to_file_id mapping: {obj_id_to_file_id}")
-    
 
     canonical = osp.join(model_dir, f"obj_{obj_id_to_file_id[obj_id]:06d}.ply")
-    print(f"[DIAG]   canonical path (by obj_id): {canonical}")
-    print(f"[DIAG]   canonical exists: {osp.exists(canonical)}")
-    
     if osp.exists(canonical):
-        print(f"[DIAG]   -> Found canonical PLY, returning: {canonical}")
         return canonical
 
     model_meta = objects_info.get("models", {}).get(str(obj_id), {})
     rel_model = model_meta.get("files", {}).get("model") if isinstance(model_meta, dict) else None
     object_path = model_meta.get("object_path") if isinstance(model_meta, dict) else None
     explicit_path = model_meta.get("model_path") if isinstance(model_meta, dict) else None
-
-    print(f"[DIAG]   rel_model={rel_model}, object_path={object_path}, explicit_path={explicit_path}")
 
     candidates = []
     if explicit_path:
@@ -135,17 +125,10 @@ def get_model_path(obj_id: int) -> str:
                 candidates.append(osp.join(root, object_path, rel_model))
                 candidates.append(osp.join(root, "objects", object_path, rel_model))
 
-    print(f"[DIAG]   candidates list ({len(candidates)} items):")
-    for i, candidate in enumerate(candidates):
-        exists = osp.exists(candidate)
-        print(f"[DIAG]     [{i}] exists={exists}: {candidate}")
-
     for candidate in candidates:
         if osp.exists(candidate):
-            print(f"[DIAG]   -> Returning first found candidate: {candidate}")
             return candidate
 
-    print(f"[DIAG]   ERROR: No model file found!")
     raise FileNotFoundError(
         f"No model file found for model_id {obj_id}. "
         f"Expected canonical path {canonical} or matching objects_info paths."
@@ -153,12 +136,6 @@ def get_model_path(obj_id: int) -> str:
 
 
 model_paths = [get_model_path(obj_id) for obj_id in id2obj]
-print("\n[DIAG] Initial model_paths setup complete:")
-for obj_id, path in zip(id2obj, model_paths):
-    exists = osp.exists(path)
-    suffix = osp.splitext(path)[1]
-    print(f"[DIAG]   obj_id={obj_id}: {suffix:5} {exists} -> {path}")
-
 
 
 def get_models_info():

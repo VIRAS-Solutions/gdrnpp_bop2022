@@ -172,7 +172,6 @@ def batch_data_train_online(cfg, data, renderer, device="cuda"):
             )
             roi_xyz_batch[_i].copy_(pc_obj_tensor[:, :, :3], non_blocking=True)
             #print(pc_obj_tensor)
-            #quit()
 
     # [bs, out_res, out_res]
     batch["roi_mask_obj"] = (

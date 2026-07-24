@@ -60,8 +60,6 @@ class EGLRenderer(object):
         use_cache=False,
         cad_model_colors=None,
     ):
-        print("####################1")
-        quit()
         if model_loadfn == "pyassimp":
             self.model_load_fn = load_mesh_pyassimp
         elif model_loadfn == "pysixd":
