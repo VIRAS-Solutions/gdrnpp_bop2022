@@ -72,10 +72,12 @@ class VIRASDataset:
         self.cache_dir = data_cfg.get("cache_dir", "/tmp/gdrnpp_cache")
 
     def __call__(self):
+        # Include filter_model_ids in cache hash if specified
+        filter_model_ids_str = str(self.data_cfg.get("filter_model_ids", ""))
         hashed = hashlib.md5(
             (
                 f"{self.name}|{self.dataset_path}|{self.split}|"
-                f"{self.with_masks}|{self.filter_invalid}|{__name__}"
+                f"{self.with_masks}|{self.filter_invalid}|{filter_model_ids_str}|{__name__}"
             ).encode("utf-8")
         ).hexdigest()
         cache_path = osp.join(self.cache_dir, f"dataset_dicts_{self.name}_{hashed}.pkl")
@@ -97,7 +99,11 @@ class VIRASDataset:
         logger.info("[VIRAS] Generating dataset from scratch for split=%s, dataset_path=%s", self.split, self.dataset_path)
         t_start = time.perf_counter()
         reader = UnifiedDatasetReader(self.dataset_path)
-        adapter = GdrnppLocalizationAdapter(reader, self.split)
+        # Pass filter_model_ids to adapter if specified (for single-object training)
+        filter_model_ids = self.data_cfg.get("filter_model_ids")
+        logger.info("[VIRAS] Dataset filter_model_ids: %s", filter_model_ids)
+        adapter = GdrnppLocalizationAdapter(reader, self.split, filter_model_ids=filter_model_ids)
+        logger.info("[VIRAS] Adapter model_names: %s (count=%d)", adapter.model_names, len(adapter.model_names))
 
         dataset_dicts = []
         for rec in adapter.iter_gdrn_records(
@@ -188,6 +194,13 @@ def get_viras_metadata(obj_names, ref_key):
 
 
 def register_with_name_cfg(name, data_cfg=None):
+    logger.info(f"[DEBUG register_with_name_cfg] Registering {name} with data_cfg={data_cfg}")
+    
+    # Remove old registration if it exists (to avoid conflicts with old metadata)
+    if name in DatasetCatalog.list():
+        logger.info(f"[DEBUG register_with_name_cfg] Dataset {name} already registered, unregistering old version")
+        # We can't directly unregister, but we can replace the registration
+    
     if name in SPLITS_DATA:
         used_cfg = dict(SPLITS_DATA[name])
         if data_cfg is not None:
@@ -196,8 +209,15 @@ def register_with_name_cfg(name, data_cfg=None):
         assert data_cfg is not None, f"dataset name {name} is not registered"
         used_cfg = data_cfg
 
+    logger.info(f"[DEBUG register_with_name_cfg] used_cfg keys: {list(used_cfg.keys())}")
+    logger.info(f"[DEBUG register_with_name_cfg] filter_model_ids in used_cfg: {used_cfg.get('filter_model_ids')}")
+    
     reader = UnifiedDatasetReader(used_cfg["dataset_path"])
-    adapter = GdrnppLocalizationAdapter(reader, used_cfg["split"])
+    # Pass filter_model_ids to adapter if specified (for single-object training)
+    filter_model_ids = used_cfg.get("filter_model_ids")
+    logger.info(f"[DEBUG register_with_name_cfg] Creating adapter with filter_model_ids={filter_model_ids}")
+    adapter = GdrnppLocalizationAdapter(reader, used_cfg["split"], filter_model_ids=filter_model_ids)
+    logger.info(f"[DEBUG register_with_name_cfg] Adapter model_names: {adapter.model_names} (count={len(adapter.model_names)})")
     ref_key = used_cfg.get("ref_key", "viras")
 
     DatasetCatalog.register(name, VIRASDataset(used_cfg))
