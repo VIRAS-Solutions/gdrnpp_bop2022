@@ -1,7 +1,7 @@
 # about 3 days
 _base_ = ["../../_base_/gdrn_base.py"]
 
-OUTPUT_DIR = "output/gdrn/ycbv/convnext_a6_AugCosyAAEGray_BG05_mlL1_DMask_amodalClipBox_classAware_ycbv"
+OUTPUT_DIR = "output/gdrn/viras/viras"
 INPUT = dict(
     DZI_PAD_SCALE=1.5,
     TRUNCATE_FG=True,
@@ -48,11 +48,6 @@ DATASETS = dict(
     TEST=("ycbv_test",),
     DET_FILES_TEST=("datasets/BOP_DATASETS/ycbv/test/test_bboxes/yolox_x_640_ycbv_real_pbr_ycbv_bop_test.json",),
     SYM_OBJS=[
-        "024_bowl",
-        "036_wood_block",
-        "051_large_clamp",
-        "052_extra_large_clamp",
-        "061_foam_brick",
     ],  # used for custom evalutor
 )
 

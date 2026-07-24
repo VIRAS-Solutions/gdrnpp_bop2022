@@ -117,9 +117,6 @@ def get_device_by_index(device_id):
         return get_default_device()
 
     devices = query_devices()
-    
-    print(len(devices))
-    print("################################")
     if device_id >= len(devices):
         raise ValueError("Invalid device ID ({})".format(device_id, len(devices)))
     return devices[device_id]

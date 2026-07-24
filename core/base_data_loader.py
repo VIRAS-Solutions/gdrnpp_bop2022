@@ -429,8 +429,11 @@ class Base_DatasetFromList(data.Dataset):
                 # Return mask as bool (matching the real code's type)
                 mask = im_mask.copy().astype(np.bool_)
                 rets.append(mask)
+            logger.warning("TEST1")
             return tuple(rets) if len(rets) > 1 else rets[0]
         
+        logger.warning("TEST2")
+        quit()
         ind = random.randint(0, len(bg_paths) - 1)
         if with_bg_depth:
             filename, depth_path, K_path = bg_paths[ind]

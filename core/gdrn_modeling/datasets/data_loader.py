@@ -376,6 +376,9 @@ class GDRN_DatasetFromList(Base_DatasetFromList):
             assert "segmentation" in dataset_dict["inst_infos"]
             mask = cocosegm2mask(dataset_dict["inst_infos"]["segmentation"], im_H_ori, im_W_ori)
             if self.with_depth and self.with_bg_depth:
+                
+                print("TEST3")
+                quit()
                 image, bg_depth, mask_trunc = self.replace_bg(
                     image.copy(),
                     mask,
@@ -384,10 +387,17 @@ class GDRN_DatasetFromList(Base_DatasetFromList):
                     with_bg_depth=True,
                     depth_bp=self.bp_depth,
                 )
+                print("TEST4")
+                quit()
             else:
+                
+                print("TEST5")
+                quit()
                 image, mask_trunc = self.replace_bg(
                     image.copy(), mask, return_mask=True, truncate_fg=cfg.INPUT.get("TRUNCATE_FG", False)
                 )
+                print("TEST6")
+                quit()
         else:
             mask_trunc = None
 

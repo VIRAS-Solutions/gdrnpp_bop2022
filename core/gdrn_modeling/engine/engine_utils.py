@@ -1,3 +1,4 @@
+import os
 import os.path as osp
 import torch
 import numpy as np
@@ -274,13 +275,30 @@ def get_renderer(cfg, data_ref, obj_names, gpu_id=None):
     from lib.egl_renderer.egl_renderer_v3 import EGLRenderer
     
     model_dir = data_ref.model_dir
-
     obj_ids = [data_ref.obj2id[_obj] for _obj in obj_names]
-    model_paths = [osp.join(model_dir, "obj_{:06d}.ply".format(obj_id)) for obj_id in obj_ids]
-
+    
+    # Check if we should use filtered objects_info.json for category_id mapping
+    dataset_dir = os.environ.get("VIRAS_GDRN_MODELS_ROOT")
+    if dataset_dir is not None:
+        # Use local_category_id from objects_info.json + 1 for file naming (1-indexed)
+        objects_info_path = os.path.join(os.path.dirname(dataset_dir), "objects_info.json")
+        objects_info = mmcv.load(objects_info_path)
+        
+        file_ids = []
+        for obj_id in obj_ids:
+            model_data = objects_info.get("models", {}).get(str(obj_id), {})
+            local_cat_id = model_data.get("local_category_id", 0)  # Default to 0 if not found
+            file_id = local_cat_id + 1
+            file_ids.append(file_id)
+    else:
+        # Fall back to using obj_id directly
+        file_ids = obj_ids
+    
+    model_paths = [osp.join(model_dir, "obj_{:06d}.ply".format(fid)) for fid in file_ids]
+    
     texture_paths = None
     if data_ref.texture_paths is not None:
-        texture_paths = [osp.join(model_dir, "obj_{:06d}.png".format(obj_id)) for obj_id in obj_ids]
+        texture_paths = [osp.join(model_dir, "obj_{:06d}.png".format(fid)) for fid in file_ids]
 
     ren = EGLRenderer(
         model_paths,

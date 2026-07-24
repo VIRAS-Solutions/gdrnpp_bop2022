@@ -70,6 +70,8 @@ class VIRASDataset:
         self.use_cache = bool(data_cfg.get("use_cache", True))
         self.filter_invalid = bool(data_cfg.get("filter_invalid", True))
         self.cache_dir = data_cfg.get("cache_dir", "/tmp/gdrnpp_cache")
+        self.objects_info_path = data_cfg.get("objects_info_path")  # NEW: Path to filtered objects_info.json
+        self.category_id_map = None  # Will be loaded from objects_info.json if available
 
     def __call__(self):
         # Include filter_model_ids in cache hash if specified
@@ -99,11 +101,45 @@ class VIRASDataset:
         logger.info("[VIRAS] Generating dataset from scratch for split=%s, dataset_path=%s", self.split, self.dataset_path)
         t_start = time.perf_counter()
         reader = UnifiedDatasetReader(self.dataset_path)
+        
+        # Load filtered objects_info.json if available (with local_category_id mapping)
+        if self.objects_info_path and osp.isfile(self.objects_info_path):
+            logger.info("[VIRAS] Loading filtered objects_info from: %s", self.objects_info_path)
+            try:
+                import json
+                with open(self.objects_info_path, "r") as f:
+                    filtered_objects_info = json.load(f)
+                # Extract category_id_map: {model_id: local_category_id}
+                self.category_id_map = {}
+                for model_id_str, model_data in filtered_objects_info.get("models", {}).items():
+                    model_id = int(model_id_str)
+                    local_category_id = model_data.get("local_category_id")
+                    if local_category_id is not None:
+                        self.category_id_map[model_id] = local_category_id
+                logger.info("[VIRAS] Loaded category_id_map from objects_info: %s", self.category_id_map)
+            except Exception as e:
+                logger.warning("[VIRAS] Failed to load category_id_map from %s: %s", self.objects_info_path, e)
+                self.category_id_map = None
+        else:
+            if self.objects_info_path:
+                logger.info("[VIRAS] objects_info_path specified but file not found: %s", self.objects_info_path)
+            else:
+                logger.info("[VIRAS] No filtered objects_info_path provided - using default adapter mapping")
+        
         # Pass filter_model_ids to adapter if specified (for single-object training)
         filter_model_ids = self.data_cfg.get("filter_model_ids")
         logger.info("[VIRAS] Dataset filter_model_ids: %s", filter_model_ids)
         adapter = GdrnppLocalizationAdapter(reader, self.split, filter_model_ids=filter_model_ids)
         logger.info("[VIRAS] Adapter model_names: %s (count=%d)", adapter.model_names, len(adapter.model_names))
+        
+        # Validate that adapter's mapping matches loaded category_id_map (if available)
+        if self.category_id_map:
+            logger.info("[VIRAS] Adapter._model_index: %s", adapter._model_index)
+            if adapter._model_index == self.category_id_map:
+                logger.info("[VIRAS] ✓ category_id_map matches adapter mapping - consistent!")
+            else:
+                logger.warning("[VIRAS] ⚠ category_id_map mismatch! Expected: %s, got: %s", 
+                              self.category_id_map, adapter._model_index)
 
         dataset_dicts = []
         for rec in adapter.iter_gdrn_records(
@@ -125,7 +161,8 @@ class VIRASDataset:
 
                 converted_annotations.append(
                     {
-                        "category_id": inst["category_id"],
+                        "category_id": inst.get("local_category_id", inst["category_id"]),
+                        "root_category_id": inst["category_id"],  # die ursprüngliche Kategorie-ID
                         "bbox": inst["bbox"],
                         "bbox_obj": inst.get("bbox_obj", inst["bbox"]),
                         "bbox_mode": BoxMode.XYWH_ABS,
@@ -211,6 +248,7 @@ def register_with_name_cfg(name, data_cfg=None):
 
     logger.info(f"[DEBUG register_with_name_cfg] used_cfg keys: {list(used_cfg.keys())}")
     logger.info(f"[DEBUG register_with_name_cfg] filter_model_ids in used_cfg: {used_cfg.get('filter_model_ids')}")
+    logger.info(f"[DEBUG register_with_name_cfg] objects_info_path in used_cfg: {used_cfg.get('objects_info_path')}")
     
     reader = UnifiedDatasetReader(used_cfg["dataset_path"])
     # Pass filter_model_ids to adapter if specified (for single-object training)
@@ -218,6 +256,29 @@ def register_with_name_cfg(name, data_cfg=None):
     logger.info(f"[DEBUG register_with_name_cfg] Creating adapter with filter_model_ids={filter_model_ids}")
     adapter = GdrnppLocalizationAdapter(reader, used_cfg["split"], filter_model_ids=filter_model_ids)
     logger.info(f"[DEBUG register_with_name_cfg] Adapter model_names: {adapter.model_names} (count={len(adapter.model_names)})")
+    
+    # Load and validate category_id_map from filtered objects_info if available
+    objects_info_path = used_cfg.get("objects_info_path")
+    if objects_info_path and osp.isfile(objects_info_path):
+        logger.info(f"[DEBUG register_with_name_cfg] Loading category_id_map from: {objects_info_path}")
+        try:
+            import json
+            with open(objects_info_path, "r") as f:
+                filtered_objects_info = json.load(f)
+            category_id_map = {}
+            for model_id_str, model_data in filtered_objects_info.get("models", {}).items():
+                model_id = int(model_id_str)
+                local_category_id = model_data.get("local_category_id")
+                if local_category_id is not None:
+                    category_id_map[model_id] = local_category_id
+            logger.info(f"[DEBUG register_with_name_cfg] Loaded category_id_map: {category_id_map}")
+            if adapter._model_index == category_id_map:
+                logger.info(f"[DEBUG register_with_name_cfg] ✓ Adapter mapping matches objects_info mapping")
+            else:
+                logger.warning(f"[DEBUG register_with_name_cfg] ⚠ Mapping mismatch! Adapter: {adapter._model_index}, objects_info: {category_id_map}")
+        except Exception as e:
+            logger.warning(f"[DEBUG register_with_name_cfg] Failed to load category_id_map: {e}")
+    
     ref_key = used_cfg.get("ref_key", "viras")
 
     DatasetCatalog.register(name, VIRASDataset(used_cfg))

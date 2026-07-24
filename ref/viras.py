@@ -33,6 +33,15 @@ objects_info_path = osp.join(dataset_root, "objects_info.json")
 models_info_path = osp.join(dataset_root, "models_info.json")
 camera_info_path = osp.join(dataset_root, "camera_info.json")
 
+# Check if there's a filtered objects_info.json in the model directory (from validate_and_prepare)
+# This is used when training with only a subset of objects
+filtered_objects_info_path = osp.join(os.path.dirname(model_dir), "objects_info.json")
+if osp.exists(filtered_objects_info_path):
+    print(f"[DIAG viras.py] Using filtered objects_info.json from: {filtered_objects_info_path}")
+    objects_info_path = filtered_objects_info_path
+else:
+    print(f"[DIAG viras.py] Using global objects_info.json from: {objects_info_path}")
+
 assert osp.exists(objects_info_path), objects_info_path
 assert osp.exists(models_info_path), models_info_path
 assert osp.exists(camera_info_path), camera_info_path
@@ -52,8 +61,16 @@ objects = list(id2obj.values())
 obj2id = {_name: _id for _id, _name in id2obj.items()}
 obj_num = len(objects)
 
-model_paths = [osp.join(model_dir, f"obj_{obj_id:06d}.ply") for obj_id in id2obj]
-texture_paths = [osp.join(model_dir, f"obj_{obj_id:06d}.png") for obj_id in id2obj]
+# Build model paths using position index + 1 for file naming (1-indexed)
+# Store mapping for later use in renderer and other places
+obj_id_to_file_id = {}  # maps global obj_id → file_id (1-indexed)
+model_paths = []
+texture_paths = []
+for idx, obj_id in enumerate(id2obj):
+    file_id = idx + 1  # Position in sorted list + 1 = 1-indexed file_id (0, 1, 2, ... → 1, 2, 3, ...)
+    obj_id_to_file_id[obj_id] = file_id
+    model_paths.append(osp.join(model_dir, f"obj_{file_id:06d}.ply"))
+    texture_paths.append(osp.join(model_dir, f"obj_{file_id:06d}.png"))
 model_colors = [((i + 1) * 10, (i + 1) * 10, (i + 1) * 10) for i in range(obj_num)]
 
 diameters = np.array([models_info[str(obj_id)].get("diameter", 0.0) for obj_id in id2obj], dtype=np.float32)
@@ -84,14 +101,26 @@ def _iter_search_roots():
 
 
 def get_model_path(obj_id: int) -> str:
-    canonical = osp.join(model_dir, f"obj_{obj_id:06d}.ply")
+    print(f"\n[DIAG] get_model_path() called for obj_id={obj_id}")
+    print(f"[DIAG]   model_dir={model_dir}")
+    print(f"[DIAG]   dataset_root={dataset_root}")
+    print(f"[DIAG]   obj_id_to_file_id mapping: {obj_id_to_file_id}")
+    
+
+    canonical = osp.join(model_dir, f"obj_{obj_id_to_file_id[obj_id]:06d}.ply")
+    print(f"[DIAG]   canonical path (by obj_id): {canonical}")
+    print(f"[DIAG]   canonical exists: {osp.exists(canonical)}")
+    
     if osp.exists(canonical):
+        print(f"[DIAG]   -> Found canonical PLY, returning: {canonical}")
         return canonical
 
     model_meta = objects_info.get("models", {}).get(str(obj_id), {})
     rel_model = model_meta.get("files", {}).get("model") if isinstance(model_meta, dict) else None
     object_path = model_meta.get("object_path") if isinstance(model_meta, dict) else None
     explicit_path = model_meta.get("model_path") if isinstance(model_meta, dict) else None
+
+    print(f"[DIAG]   rel_model={rel_model}, object_path={object_path}, explicit_path={explicit_path}")
 
     candidates = []
     if explicit_path:
@@ -106,10 +135,17 @@ def get_model_path(obj_id: int) -> str:
                 candidates.append(osp.join(root, object_path, rel_model))
                 candidates.append(osp.join(root, "objects", object_path, rel_model))
 
+    print(f"[DIAG]   candidates list ({len(candidates)} items):")
+    for i, candidate in enumerate(candidates):
+        exists = osp.exists(candidate)
+        print(f"[DIAG]     [{i}] exists={exists}: {candidate}")
+
     for candidate in candidates:
         if osp.exists(candidate):
+            print(f"[DIAG]   -> Returning first found candidate: {candidate}")
             return candidate
 
+    print(f"[DIAG]   ERROR: No model file found!")
     raise FileNotFoundError(
         f"No model file found for model_id {obj_id}. "
         f"Expected canonical path {canonical} or matching objects_info paths."
@@ -117,6 +153,12 @@ def get_model_path(obj_id: int) -> str:
 
 
 model_paths = [get_model_path(obj_id) for obj_id in id2obj]
+print("\n[DIAG] Initial model_paths setup complete:")
+for obj_id, path in zip(id2obj, model_paths):
+    exists = osp.exists(path)
+    suffix = osp.splitext(path)[1]
+    print(f"[DIAG]   obj_id={obj_id}: {suffix:5} {exists} -> {path}")
+
 
 
 def get_models_info():

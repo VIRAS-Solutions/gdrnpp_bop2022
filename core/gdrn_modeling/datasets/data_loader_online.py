@@ -4,6 +4,8 @@ import logging
 import os.path as osp
 import pickle
 from traceback import print_tb
+import os
+import threading
 
 import cv2
 import mmcv
@@ -261,8 +263,10 @@ class GDRN_Online_DatasetFromList(Base_DatasetFromList):
         """label based keys."""
         if dataset_name in self.extents:
             return self.extents[dataset_name]
+        print("TEST16E2")
 
         dset_meta = MetadataCatalog.get(dataset_name)
+        print("TEST16E3")
         try:
             ref_key = dset_meta.ref_key
         except:
@@ -270,20 +274,33 @@ class GDRN_Online_DatasetFromList(Base_DatasetFromList):
             register_datasets([dataset_name])
             dset_meta = MetadataCatalog.get(dataset_name)
             ref_key = dset_meta.ref_key
+        print("TEST16E4")
             
         data_ref = ref.__dict__[ref_key]
         objs = dset_meta.objs
         cfg = self.cfg
+        print("TEST16E5")
 
         cur_extents = {}
         for i, obj_name in enumerate(objs):
             obj_id = data_ref.obj2id[obj_name]
+            print("TEST16E5A")
             if hasattr(data_ref, "get_model_path"):
                 model_path = data_ref.get_model_path(obj_id)
             else:
                 model_path = osp.join(data_ref.model_dir, f"obj_{obj_id:06d}.ply")
-            model = inout.load_ply(model_path, vertex_scale=data_ref.vertex_scale)
+            print(f"TEST16E5B - Worker {os.getpid()} - Thread {threading.current_thread().name} - Loading: {model_path}")
+            import time
+            load_start = time.time()
+            try:
+                model = inout.load_ply(model_path, vertex_scale=data_ref.vertex_scale)
+                load_time = time.time() - load_start
+                print(f"TEST16E5C - Worker {os.getpid()} - Loaded OK in {load_time:.2f}s")
+            except Exception as e:
+                print(f"TEST16E5C - Worker {os.getpid()} - ERROR: {e}")
+                raise
             pts = model["pts"]
+            print("TEST16E5D")
             xmin, xmax = np.amin(pts[:, 0]), np.amax(pts[:, 0])
             ymin, ymax = np.amin(pts[:, 1]), np.amax(pts[:, 1])
             zmin, zmax = np.amin(pts[:, 2]), np.amax(pts[:, 2])
@@ -291,8 +308,11 @@ class GDRN_Online_DatasetFromList(Base_DatasetFromList):
             size_y = ymax - ymin
             size_z = zmax - zmin
             cur_extents[i] = np.array([size_x, size_y, size_z], dtype="float32")
+            print("TEST16E5E")
+        print("TEST16E6")
 
         self.extents[dataset_name] = cur_extents
+        print("TEST16E7")
         return self.extents[dataset_name]
 
     def _get_sym_infos(self, dataset_name):
@@ -374,6 +394,7 @@ class GDRN_Online_DatasetFromList(Base_DatasetFromList):
             assert "segmentation" in dataset_dict["inst_infos"]
             mask = cocosegm2mask(dataset_dict["inst_infos"]["segmentation"], im_H_ori, im_W_ori)
             if self.with_depth and self.with_bg_depth:
+                print("TEST11")
                 image, bg_depth, mask_trunc = self.replace_bg(
                     image.copy(),
                     mask,
@@ -382,13 +403,17 @@ class GDRN_Online_DatasetFromList(Base_DatasetFromList):
                     with_bg_depth=True,
                     depth_bp=self.bp_depth,
                 )
+                print("TEST12")
             else:
+                print("TEST13")
                 image, mask_trunc = self.replace_bg(
                     image.copy(), mask, return_mask=True, truncate_fg=cfg.INPUT.get("TRUNCATE_FG", False)
                 )
+                
+                print("TEST13")
         else:
             mask_trunc = None
-
+        print("TEST14")
         # NOTE: maybe add or change color augment here ===================================
         if self.color_aug_prob > 0 and self.color_augmentor is not None:
             if np.random.rand() < self.color_aug_prob:
@@ -409,6 +434,7 @@ class GDRN_Online_DatasetFromList(Base_DatasetFromList):
             dataset_dict["cam"][0] *= scale_x
             dataset_dict["cam"][1] *= scale_y
             K = dataset_dict["cam"].numpy()
+        print("TEST15")
 
         if self.with_depth:
             if do_replace_bg and self.with_bg_depth:
@@ -447,21 +473,27 @@ class GDRN_Online_DatasetFromList(Base_DatasetFromList):
                 grid_show(
                     [image[:, :, ::-1], heatmap(depth_vis, to_rgb=True, max=2.5)], ["image", "depth"], row=1, col=2
                 )
+        print("TEST16")
 
         input_res = net_cfg.INPUT_RES
         out_res = net_cfg.OUTPUT_RES
 
         # CHW -> HWC
         coord_2d = get_2d_coord_np(im_W, im_H, low=0, high=1).transpose(1, 2, 0)
+        print("TEST16A")
         #######################################################################################
         # NOTE: currently assume flattened dicts for train
         assert self.flatten, "Only support flattened dicts for train now"
+        print("TEST16B")
         inst_infos = dataset_dict.pop("inst_infos")
         dataset_dict["roi_cls"] = roi_cls = inst_infos["category_id"]
+        print("TEST16C")
 
         # extent
         roi_extent = self._get_extents(dataset_name)[roi_cls]
+        print("TEST16D")
         dataset_dict["roi_extent"] = torch.as_tensor(np.array(roi_extent), dtype=torch.float32)
+        print("TEST17")
 
         # override bbox using cropped 128 bbox
         if cfg.MODEL.BBOX_CROP_SYN and "syn" in img_type:
@@ -470,6 +502,7 @@ class GDRN_Online_DatasetFromList(Base_DatasetFromList):
             inst_infos["bbox"] = inst_infos["bbox_crop"]
         else:
             pass
+        print("TEST18")
 
         # USER: Implement additional transformations if you have other types of data
         anno = transform_instance_annotations(inst_infos, transforms, image_shape, keypoint_hflip_indices=None)
@@ -488,6 +521,7 @@ class GDRN_Online_DatasetFromList(Base_DatasetFromList):
             bbox_xyxy = [ax1, ay1, ax2, ay2]
         else:
             raise ValueError
+        print("TEST19")
 
         bbox_center, scale = self.aug_bbox_DZI(cfg, bbox_xyxy, im_H, im_W)
         bw = max(bbox_xyxy[2] - bbox_xyxy[0], 1)
@@ -521,6 +555,7 @@ class GDRN_Online_DatasetFromList(Base_DatasetFromList):
             roi_coord_2d_rel = (
                 bbox_center.reshape(2, 1, 1) - roi_coord_2d * np.array([im_W, im_H]).reshape(2, 1, 1)
             ) / scale
+        print("TEST20")
 
         ## roi_mask ---------------------------------------
         # (mask_trunc < mask_visib < mask_obj)
@@ -565,6 +600,7 @@ class GDRN_Online_DatasetFromList(Base_DatasetFromList):
 
         if roi_mask_trunc.sum() < 32 or roi_mask_visib.sum() < 32:
             return None
+        print("TEST21")
 
         # fps points: for region label
         if g_head_cfg.NUM_REGIONS > 1:
@@ -601,6 +637,9 @@ class GDRN_Online_DatasetFromList(Base_DatasetFromList):
         obj_center = anno["centroid_2d"]
         delta_c = obj_center - bbox_center
         dataset_dict["trans_ratio"] = torch.as_tensor([delta_c[0] / bw, delta_c[1] / bh, z_ratio]).to(torch.float32)
+
+        
+        print("TEST22")
         return dataset_dict
 
     def read_data_test(self, dataset_dict):
