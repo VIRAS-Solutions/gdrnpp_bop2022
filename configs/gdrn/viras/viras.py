@@ -46,7 +46,6 @@ SOLVER = dict(
 DATASETS = dict(
     TRAIN=("ycbv_train_real", "ycbv_train_pbr"),
     TEST=("ycbv_test",),
-    DET_FILES_TEST=("datasets/BOP_DATASETS/ycbv/test/test_bboxes/yolox_x_640_ycbv_real_pbr_ycbv_bop_test.json",),
     SYM_OBJS=[
     ],  # used for custom evalutor
 )
@@ -58,7 +57,7 @@ DATALOADER = dict(
 )
 
 MODEL = dict(
-    LOAD_DETS_TEST=True,
+    LOAD_DETS_TEST=False,
     PIXEL_MEAN=[0.0, 0.0, 0.0],
     PIXEL_STD=[255.0, 255.0, 255.0],
     BBOX_TYPE="AMODAL_CLIP",  # VISIB or AMODAL

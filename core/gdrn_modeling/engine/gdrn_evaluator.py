@@ -3,7 +3,9 @@
 available)"""
 import datetime
 import itertools
+import json
 import logging
+import os
 import os.path as osp
 import random
 import time
@@ -590,11 +592,333 @@ class GDRN_Evaluator(DatasetEvaluator):
 
         Return results with the metrics of the tasks.
         """
-        logger.info("Eval results with BOP toolkit ...")
-        self._process_time_of_preds(self._predictions)
-        results_all = {"iter0": self._predictions}
-        save_and_eval_results(self.cfg, results_all, self._output_dir, obj_ids=self.obj_ids)
+        # Check if this is a VIRAS dataset - if so, use ADD metrics instead of BOP
+        if 'viras' in self.data_ref.__class__.__name__.lower() or 'viras' in self._metadata.get('name', '').lower():
+            logger.info("VIRAS dataset detected - using ADD metrics for evaluation...")
+            return self._eval_predictions_viras()
+        else:
+            logger.info("Eval results with BOP toolkit ...")
+            self._process_time_of_preds(self._predictions)
+            results_all = {"iter0": self._predictions}
+            save_and_eval_results(self.cfg, results_all, self._output_dir, obj_ids=self.obj_ids)
+            return {}
+
+    def _eval_predictions_viras(self):
+        """VIRAS-specific evaluation using ADD metrics.
+        
+        Calculates:
+        - ADD: Average Distance of Model Points
+        - Rotation Error (degrees)
+        - Translation Error (mm)
+        """
+        from lib.pysixd.pose_error import add, te, re
+        
+        logger.info(f"Evaluating {len(self._predictions)} predictions on VIRAS dataset...")
+        logger.info(f"Sample prediction keys: {list(self._predictions[0].keys()) if self._predictions else 'NO PREDICTIONS'}")
+        
+        # Load dataset to get GT poses
+        try:
+            from detectron2.data import build_detection_test_loader
+            dataset_dict = DatasetCatalog.get(self._metadata.name)
+            logger.info(f"Loaded dataset: {self._metadata.name}")
+        except Exception as e:
+            logger.warning(f"Could not load dataset: {e}")
+            dataset_dict = {}
+        
+        # Build mapping from (scene_id, im_id, obj_id) to GT pose
+        # NOTE: VIRASDataset remaps obj_id to category_id (0-indexed) in annotations
+        # So dataset annotations have category_id, but predictions have model_id (global)
+        # We need to build a mapping that works with category_id (as in dataset)
+        gt_poses = {}  # (scene_id, im_id, category_id) -> {'R': ..., 't': ...}
+        indexed_gt_poses = {}  # flat_index -> {'scene_id': ..., 'im_id': ..., 'category_id': ..., 'pose': ...}
+        flat_index = 0
+        obj_ids_in_dataset = set()
+        
+        for data_idx, data in enumerate(dataset_dict):
+            scene_id = data.get('scene_id', 0)
+            im_id = data.get('image_id', data.get('im_id', 0))
+            
+            # Get annotations for this image
+            for ann in data.get('annotations', []):
+                # In dataset, annotations have category_id (0-indexed, from VIRASDataset remapping)
+                category_id = ann.get('category_id', ann.get('obj_id'))
+                obj_ids_in_dataset.add(category_id)
+                
+                # Extract GT pose from annotation
+                pose_data = None
+                if 'pose' in ann:
+                    pose = np.array(ann['pose'])
+                    if pose.size == 12:
+                        # 3x4 format [R|t]
+                        pose_34 = pose.reshape(3, 4)
+                        R_gt = pose_34[:3, :3]
+                        t_gt = pose_34[:3, 3:4] * 1000  # Convert to mm
+                        pose_data = {'R': R_gt, 't': t_gt}
+                    elif pose.size == 16:
+                        # 4x4 format
+                        pose_44 = pose.reshape(4, 4)
+                        R_gt = pose_44[:3, :3]
+                        t_gt = pose_44[:3, 3:4] * 1000
+                        pose_data = {'R': R_gt, 't': t_gt}
+                elif 'rotation' in ann and 'translation' in ann:
+                    pose_data = {
+                        'R': np.array(ann['rotation']).reshape(3, 3),
+                        't': np.array(ann['translation']).reshape(3, 1) * 1000
+                    }
+                
+                if pose_data:
+                    # Store by (scene_id, im_id, category_id) - dataset uses category_id
+                    gt_poses[(scene_id, im_id, category_id)] = pose_data
+                    
+                    # Add to indexed poses for sequential matching
+                    indexed_gt_poses[flat_index] = {
+                        'scene_id': scene_id,
+                        'im_id': im_id,
+                        'category_id': category_id,
+                        'pose': pose_data
+                    }
+                    flat_index += 1
+        
+        # Build mapping from category_id to model_id for proper indexing
+        category_id_to_model_id = {}
+        model_id_to_category_id = {}
+        if hasattr(self.data_ref, 'category_id_map'):
+            # category_id_map is {model_id: category_id}
+            category_id_to_model_id = {v: k for k, v in self.data_ref.category_id_map.items()}
+            model_id_to_category_id = self.data_ref.category_id_map
+            logger.info(f"Using category_id_map from data_ref: {model_id_to_category_id}")
+        else:
+            # Fallback: create mapping from self.obj_ids
+            # self.obj_ids are the GLOBAL model_ids
+            # category_id is the INDEX in self.obj_ids
+            for idx, model_id in enumerate(self.obj_ids):
+                category_id_to_model_id[idx] = model_id
+                model_id_to_category_id[model_id] = idx
+            logger.info(f"Using fallback mapping from obj_ids: {model_id_to_category_id}")
+        
+        logger.info(f"Loaded {len(gt_poses)} GT poses from dataset ({flat_index} total indexed entries)")
+        logger.info(f"Dataset annotation categories: {sorted(obj_ids_in_dataset)}")
+        logger.info(f"category_id_to_model_id mapping: {category_id_to_model_id}")
+        
+        # Group predictions by object and image_id
+        preds_by_obj = {}
+        for pred in self._predictions:
+            obj_id = pred.get('obj_id', pred.get('category_id'))
+            if obj_id not in preds_by_obj:
+                preds_by_obj[obj_id] = []
+            preds_by_obj[obj_id].append(pred)
+        
+        logger.info(f"Grouped {len(self._predictions)} predictions into {len(preds_by_obj)} objects")
+        
+        # Compute metrics for each object
+        metrics_summary = {}
+        all_add_errors = []
+        all_rot_errors = []
+        all_trans_errors = []
+        
+        for obj_id, preds in preds_by_obj.items():
+            # Map global model_id to category_id for models_3d indexing
+            if obj_id in model_id_to_category_id:
+                # obj_id is a global model_id, convert to category_id
+                category_id = model_id_to_category_id[obj_id]
+                model_3d_index = category_id
+            elif obj_id in range(len(self.models_3d)):
+                # obj_id is already a category_id, use directly
+                model_3d_index = obj_id
+                category_id = obj_id
+            else:
+                logger.warning(f"Object {obj_id} not in mapping (category_id_map keys={list(model_id_to_category_id.keys())})")
+                continue
+            
+            if model_3d_index >= len(self.models_3d):
+                logger.warning(f"Index {model_3d_index} out of range for models_3d (len={len(self.models_3d)})")
+                continue
+            
+            model_3d = self.models_3d[model_3d_index]
+            model_pts = model_3d['pts']  # Get model points from loaded PLY
+            
+            logger.info(f"Evaluating {len(preds)} predictions for object {obj_id} (model_3d_index={model_3d_index}, model_pts shape={model_pts.shape})")
+            
+            add_errors = []
+            rot_errors = []
+            trans_errors = []
+            n_success = 0
+            
+            for pred_idx, pred in enumerate(preds):
+                try:
+                    # Extract estimated pose from prediction (R and t are from model output)
+                    R_est = np.array(pred['R']).reshape(3, 3)
+                    t_est = np.array(pred['t']).reshape(3, 1) * 1000  # Convert to mm
+                    
+                    # Get GT pose from dataset
+                    # Predictions have obj_id (global model_id), but dataset has category_id (local)
+                    scene_id = pred.get('scene_id', 0)
+                    im_id = pred.get('im_id', pred.get('image_id', 0))
+                    
+                    # Convert global model_id (obj_id) to category_id for dataset lookup
+                    category_id = model_id_to_category_id.get(obj_id, obj_id)
+                    
+                    # Strategy 1: Try direct (scene_id, im_id, category_id) lookup
+                    gt_key = (scene_id, im_id, category_id)
+                    gt_pose = None
+                    
+                    if gt_key in gt_poses:
+                        gt_pose = gt_poses[gt_key]
+                        logger.debug(f"Pred {pred_idx}: matched via direct key {gt_key}")
+                    else:
+                        # Strategy 2: Try index-based matching
+                        # Predictions come in order from DataLoader, GT annotations come in order
+                        if pred_idx in indexed_gt_poses:
+                            gt_pose_data = indexed_gt_poses[pred_idx]
+                            # Verify category_id matches
+                            if gt_pose_data['category_id'] == category_id:
+                                gt_pose = gt_pose_data['pose']
+                                logger.debug(f"Pred {pred_idx}: matched via index (category_id={category_id})")
+                            else:
+                                logger.debug(f"Pred {pred_idx}: category_id mismatch (pred category_id={category_id}, indexed={gt_pose_data['category_id']})")
+                    
+                    if gt_pose is None:
+                        logger.debug(f"Pred {pred_idx}: GT pose not found for key {gt_key} or index {pred_idx}")
+                        continue
+                    
+                    R_gt = gt_pose['R']
+                    t_gt = gt_pose['t']
+                    
+                    # Compute ADD (in mm, since model is loaded in mm)
+                    add_error = add(R_est, t_est, R_gt, t_gt, model_pts)
+                    add_errors.append(add_error)
+                    all_add_errors.append(add_error)
+                    
+                    # Compute rotation error (in degrees)
+                    rot_error = self._rotation_error_deg(R_est, R_gt)
+                    rot_errors.append(rot_error)
+                    all_rot_errors.append(rot_error)
+                    
+                    # Compute translation error (in mm)
+                    trans_error = te(t_est, t_gt) * 1000  # Convert to mm
+                    trans_errors.append(trans_error)
+                    all_trans_errors.append(trans_error)
+                    
+                    n_success += 1
+                    
+                except Exception as e:
+                    logger.debug(f"Error computing metrics for object {obj_id} pred {pred_idx}: {e}")
+                    continue
+            
+            logger.info(f"Object {obj_id}: computed {len(add_errors)} metrics from {len(preds)} predictions ({n_success} successful)")
+            
+            if add_errors:
+                metrics_summary[f'obj_{obj_id}'] = {
+                    'add_mean_mm': float(np.mean(add_errors)),
+                    'add_std_mm': float(np.std(add_errors)),
+                    'add_median_mm': float(np.median(add_errors)),
+                    'rot_mean_deg': float(np.mean(rot_errors)),
+                    'rot_std_deg': float(np.std(rot_errors)),
+                    'trans_mean_mm': float(np.mean(trans_errors)),
+                    'trans_std_mm': float(np.std(trans_errors)),
+                    'n_predictions': len(add_errors),
+                }
+        
+        # Overall metrics
+        if all_add_errors:
+            metrics_summary['overall'] = {
+                'add_mean_mm': float(np.mean(all_add_errors)),
+                'add_std_mm': float(np.std(all_add_errors)),
+                'add_median_mm': float(np.median(all_add_errors)),
+                'add_max_mm': float(np.max(all_add_errors)),
+                'rot_mean_deg': float(np.mean(all_rot_errors)),
+                'rot_std_deg': float(np.std(all_rot_errors)),
+                'trans_mean_mm': float(np.mean(all_trans_errors)),
+                'trans_std_mm': float(np.std(all_trans_errors)),
+                'n_predictions': len(all_add_errors),
+            }
+            
+            # Log summary
+            logger.info("\n" + "="*80)
+            logger.info("VIRAS ADD Evaluation Results")
+            logger.info("="*80)
+            logger.info(f"Overall ADD: {metrics_summary['overall']['add_mean_mm']:.4f} ± {metrics_summary['overall']['add_std_mm']:.4f} mm")
+            logger.info(f"Overall Rotation Error: {metrics_summary['overall']['rot_mean_deg']:.2f} ± {metrics_summary['overall']['rot_std_deg']:.2f}°")
+            logger.info(f"Overall Translation Error: {metrics_summary['overall']['trans_mean_mm']:.2f} ± {metrics_summary['overall']['trans_std_mm']:.2f} mm")
+            logger.info(f"Number of predictions: {metrics_summary['overall']['n_predictions']}")
+            logger.info("="*80 + "\n")
+        
+        # Save metrics to file
+        metrics_file = osp.join(self._output_dir, 'viras_add_metrics.json')
+        # Ensure output directory exists
+        os.makedirs(osp.dirname(metrics_file), exist_ok=True)
+        with open(metrics_file, 'w') as f:
+            json.dump(metrics_summary, f, indent=2)
+        logger.info(f"Saved VIRAS metrics to: {metrics_file}")
+        
+        # Log metrics to TensorBoard
+        try:
+            from torch.utils.tensorboard import SummaryWriter
+            # Write to the main training TensorBoard directory, not the eval subdirectory
+            tb_log_dir = osp.join(self.cfg.OUTPUT_DIR, 'tb')
+            os.makedirs(tb_log_dir, exist_ok=True)
+            writer = SummaryWriter(log_dir=tb_log_dir)
+            
+            # Get current iteration/epoch from output_dir path (format: .../epoch_X_iter_Y/...)
+            iteration = 0
+            try:
+                import re
+                path_match = re.search(r'epoch_(\d+)_iter_(\d+)', self._output_dir)
+                if path_match:
+                    iteration = int(path_match.group(1)) * 1000 + int(path_match.group(2))
+            except:
+                pass
+            
+            # Log overall metrics
+            if 'overall' in metrics_summary:
+                overall = metrics_summary['overall']
+                writer.add_scalar('viras_val/add_mean_mm', overall['add_mean_mm'], iteration)
+                writer.add_scalar('viras_val/add_std_mm', overall['add_std_mm'], iteration)
+                writer.add_scalar('viras_val/add_median_mm', overall['add_median_mm'], iteration)
+                writer.add_scalar('viras_val/add_max_mm', overall['add_max_mm'], iteration)
+                writer.add_scalar('viras_val/rot_mean_deg', overall['rot_mean_deg'], iteration)
+                writer.add_scalar('viras_val/rot_std_deg', overall['rot_std_deg'], iteration)
+                writer.add_scalar('viras_val/trans_mean_mm', overall['trans_mean_mm'], iteration)
+                writer.add_scalar('viras_val/trans_std_mm', overall['trans_std_mm'], iteration)
+                
+                # Log aggregated histogram
+                writer.add_histogram('viras_val/add_errors_mm', all_add_errors, iteration)
+                writer.add_histogram('viras_val/rot_errors_deg', all_rot_errors, iteration)
+                writer.add_histogram('viras_val/trans_errors_mm', all_trans_errors, iteration)
+            
+            # Log per-object metrics
+            for obj_key, obj_metrics in metrics_summary.items():
+                if obj_key != 'overall':
+                    writer.add_scalar(f'viras_val/{obj_key}/add_mean_mm', obj_metrics['add_mean_mm'], iteration)
+                    writer.add_scalar(f'viras_val/{obj_key}/rot_mean_deg', obj_metrics['rot_mean_deg'], iteration)
+                    writer.add_scalar(f'viras_val/{obj_key}/trans_mean_mm', obj_metrics['trans_mean_mm'], iteration)
+            
+            writer.flush()
+            writer.close()
+            logger.info(f"Logged VIRAS metrics to TensorBoard: {tb_log_dir}")
+        except Exception as e:
+            logger.warning(f"Failed to log metrics to TensorBoard: {e}")
+        
         return {}
+
+    @staticmethod
+    def _rotation_error_deg(R_est, R_gt):
+        """Calculate rotation error in degrees.
+        
+        Args:
+            R_est: 3x3 estimated rotation matrix
+            R_gt: 3x3 ground-truth rotation matrix
+            
+        Returns:
+            Error in degrees
+        """
+        # Formula: error = arccos((trace(R_est^T @ R_gt) - 1) / 2)
+        trace = np.trace(R_est.T @ R_gt)
+        # Clamp to [-1, 1] to avoid numerical issues
+        trace = np.clip(trace, -1.0, 1.0)
+        angle_rad = np.arccos((trace - 1) / 2)
+        angle_deg = np.degrees(angle_rad)
+        return angle_deg
 
     def _process_time_of_preds(self, results):
         # process time so that each image's inference time is the largest of all different inference times
