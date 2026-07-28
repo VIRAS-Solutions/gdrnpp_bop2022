@@ -652,18 +652,19 @@ class GDRN_Evaluator(DatasetEvaluator):
                         # 3x4 format [R|t]
                         pose_34 = pose.reshape(3, 4)
                         R_gt = pose_34[:3, :3]
-                        t_gt = pose_34[:3, 3:4] * 1000  # Convert to mm
+                        t_gt_raw = pose_34[:3, 3:4]
+                        t_gt = t_gt_raw
                         pose_data = {'R': R_gt, 't': t_gt}
                     elif pose.size == 16:
                         # 4x4 format
                         pose_44 = pose.reshape(4, 4)
                         R_gt = pose_44[:3, :3]
-                        t_gt = pose_44[:3, 3:4] * 1000
+                        t_gt = pose_44[:3, 3:4]
                         pose_data = {'R': R_gt, 't': t_gt}
                 elif 'rotation' in ann and 'translation' in ann:
                     pose_data = {
                         'R': np.array(ann['rotation']).reshape(3, 3),
-                        't': np.array(ann['translation']).reshape(3, 1) * 1000
+                        't': np.array(ann['translation']).reshape(3, 1)
                     }
                 
                 if pose_data:
@@ -748,7 +749,7 @@ class GDRN_Evaluator(DatasetEvaluator):
                 try:
                     # Extract estimated pose from prediction (R and t are from model output)
                     R_est = np.array(pred['R']).reshape(3, 3)
-                    t_est = np.array(pred['t']).reshape(3, 1) * 1000  # Convert to mm
+                    t_est = np.array(pred['t']).reshape(3, 1)
                     
                     # Get GT pose from dataset
                     # Predictions have obj_id (global model_id), but dataset has category_id (local)
@@ -764,7 +765,6 @@ class GDRN_Evaluator(DatasetEvaluator):
                     
                     if gt_key in gt_poses:
                         gt_pose = gt_poses[gt_key]
-                        logger.debug(f"Pred {pred_idx}: matched via direct key {gt_key}")
                     else:
                         # Strategy 2: Try index-based matching
                         # Predictions come in order from DataLoader, GT annotations come in order
@@ -795,7 +795,7 @@ class GDRN_Evaluator(DatasetEvaluator):
                     all_rot_errors.append(rot_error)
                     
                     # Compute translation error (in mm)
-                    trans_error = te(t_est, t_gt) * 1000  # Convert to mm
+                    trans_error = te(t_est, t_gt)
                     trans_errors.append(trans_error)
                     all_trans_errors.append(trans_error)
                     
@@ -983,7 +983,7 @@ class GDRN_Evaluator(DatasetEvaluator):
             "obj_id": obj_id,  # the obj_id in bop datasets
             "score": score,
             "R": to_list(rot),
-            "t": to_list(1000 * trans),  # mm
+            "t": to_list(trans),
             "time": pose_time,
         }
         results.append(result)
