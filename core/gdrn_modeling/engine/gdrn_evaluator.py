@@ -773,7 +773,7 @@ class GDRN_Evaluator(DatasetEvaluator):
                             # Verify category_id matches
                             if gt_pose_data['category_id'] == category_id:
                                 gt_pose = gt_pose_data['pose']
-                                logger.debug(f"Pred {pred_idx}: matched via index (category_id={category_id})")
+                                #logger.debug(f"Pred {pred_idx}: matched via index (category_id={category_id})")
                             else:
                                 logger.debug(f"Pred {pred_idx}: category_id mismatch (pred category_id={category_id}, indexed={gt_pose_data['category_id']})")
                     

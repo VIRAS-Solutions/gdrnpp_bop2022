@@ -225,9 +225,6 @@ class OffscreenContext(object):
         # Drucke die unterstützten Erweiterungen
         num_extensions = GL.glGetIntegerv(GL.GL_NUM_EXTENSIONS)
         print("Supported Extensions:{}".format(num_extensions))
-        for i in range(num_extensions):
-            extension = GL.glGetStringi(GL.GL_EXTENSIONS, i).decode()
-            print(extension)
 
         #if not glInitBindlessTextureNV():
         #    raise RuntimeError("Bindless Textures not supported")

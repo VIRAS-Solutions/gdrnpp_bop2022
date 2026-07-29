@@ -268,13 +268,9 @@ def load_mesh_pyassimp(
         model_path
     )  # ,processing=pyassimp.postprocess.aiProcess_GenUVCoords | pyassimp.postprocess.aiProcess_Triangulate)  # load collada
     mesh = scene.meshes[0]
-    # pprint(vars(mesh))
-    print(mesh.__dict__.keys())
 
     # check materials
     mat = mesh.material
-    # pprint(vars(mat))
-    print(mat.__dict__.keys())
     # default values in pyassimp, ambient:0.05, diffuse: 0.6, specular: 0.6
     if "diffuse" in mat.properties.keys() and mat.properties["diffuse"] != 0:
         uMatDiffuse = np.array(mat.properties["diffuse"])[:3]

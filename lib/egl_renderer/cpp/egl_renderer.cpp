@@ -92,8 +92,7 @@ static EGLDisplay getCudaDisplay(int cudaDeviceIdx)
     }
     EGLDisplay display = 0;
     EGLDeviceEXT* devices = (EGLDeviceEXT*)malloc(num_devices * sizeof(void*));
-    std::cout << "EGL STATUS" << eglQueryDevicesEXT(num_devices, devices, &num_devices) << std::endl;
-    std::cout << "->" << num_devices << "," << devices << "," << num_devices << std::endl;
+
     printf("num = %d \n", num_devices);
     for (int i=0; i < num_devices; i++)
     {
@@ -129,8 +128,7 @@ static EGLDisplay getCudaDisplay(int cudaDeviceIdx)
         if(errorCode == EGL_BAD_ALLOC){
             std::cout << "EGL_BAD_ALLOC\n";
         }
-        std::cout << "STATUS: " << status << " , " << value << " , " << device << std::endl ;
-        std::cout << eglQueryDeviceAttribEXT << std::endl;
+        
         if (status )//&& value == cudaDeviceIdx)
         {
             display = eglGetPlatformDisplayEXT(EGL_PLATFORM_DEVICE_EXT, device, 0);
@@ -173,7 +171,7 @@ public:
             fprintf(stderr, "cudaSetDevice failed!  Do you have a CUDA-capable GPU installed?");
             exit(EXIT_FAILURE);
         } 
-        std::cout <<  "cudaSetDevice SET DEVICE SUCCESSFULLLL\n" << std::endl;
+        std::cout <<  "cudaSetDevice set device successful\n" << std::endl;
 
 
         EGLint egl_config_attribs[] = {
