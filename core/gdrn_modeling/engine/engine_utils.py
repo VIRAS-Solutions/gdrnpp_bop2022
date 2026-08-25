@@ -12,7 +12,31 @@ from core.utils.utils import get_emb_show
 from lib.pysixd import misc
 
 
+def _debug_forward_samples(data, phase):
+    if os.environ.get("GDRN_DEBUG_FORWARD_PARAMS", "0") != "1":
+        return
+
+    print(f"\n[GDRN {phase} sample debug]")
+    for index, sample in enumerate(data):
+        identifiers = {
+            key: sample.get(key)
+            for key in ("file_name", "scene_im_id", "inst_id", "image_id", "dataset_name")
+            if key in sample
+        }
+        print(f"  sample[{index}]: {identifiers}")
+        for key in (
+            "roi_cls", "bbox", "bbox_est", "bbox_center", "scale", "roi_wh", "resize_ratio",
+            "trans_ratio", "trans", "ego_rot", "roi_extent", "cam",
+        ):
+            if key in sample:
+                value = sample[key]
+                if isinstance(value, torch.Tensor):
+                    value = value.detach().cpu().tolist()
+                print(f"    {key}: {value!r}")
+
+
 def batch_data(cfg, data, renderer=None, device="cuda", phase="train"):
+    _debug_forward_samples(data, phase)
     if phase != "train":
         return batch_data_test(cfg, data, device=device)
 

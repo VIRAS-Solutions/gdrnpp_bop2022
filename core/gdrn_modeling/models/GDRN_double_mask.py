@@ -1,5 +1,6 @@
 import copy
 import logging
+import os 
 import time
 import numpy as np
 import torch
@@ -88,6 +89,47 @@ class GDRN_DoubleMask(nn.Module):
         resize_ratios=None,
         do_loss=False,
     ):
+        if os.environ.get("GDRN_DEBUG_FORWARD_PARAMS", "0") == "1":
+            parameters = {
+                "x": x,
+                "gt_xyz": gt_xyz,
+                "gt_xyz_bin": gt_xyz_bin,
+                "gt_mask_trunc": gt_mask_trunc,
+                "gt_mask_visib": gt_mask_visib,
+                "gt_mask_obj": gt_mask_obj,
+                "gt_mask_full": gt_mask_full,
+                "gt_region": gt_region,
+                "gt_ego_rot": gt_ego_rot,
+                "gt_points": gt_points,
+                "sym_infos": sym_infos,
+                "gt_trans": gt_trans,
+                "gt_trans_ratio": gt_trans_ratio,
+                "roi_classes": roi_classes,
+                "roi_coord_2d": roi_coord_2d,
+                "roi_coord_2d_rel": roi_coord_2d_rel,
+                "roi_cams": roi_cams,
+                "roi_centers": roi_centers,
+                "roi_whs": roi_whs,
+                "roi_extents": roi_extents,
+                "resize_ratios": resize_ratios,
+                "do_loss": do_loss,
+            }
+            print("\n[GDRN forward parameter debug]")
+            for name, value in parameters.items():
+                if isinstance(value, torch.Tensor):
+                    detached = value.detach()
+                    summary = f"shape={tuple(detached.shape)}, dtype={detached.dtype}, device={detached.device}"
+                    if detached.numel() <= 20:
+                        summary += f", value={detached.cpu().tolist()}"
+                    elif detached.numel() > 0:
+                        summary += (
+                            f", min={detached.min().item():.6g}, max={detached.max().item():.6g},"
+                            f" mean={detached.float().mean().item():.6g}"
+                        )
+                    print(f"  {name}: {summary}")
+                else:
+                    print(f"  {name}: {value!r}")
+
         cfg = self.cfg
         net_cfg = cfg.MODEL.POSE_NET
         g_head_cfg = net_cfg.GEO_HEAD
