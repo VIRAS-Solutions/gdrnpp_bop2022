@@ -52,7 +52,7 @@ objects_info = mmcv.load(objects_info_path)
 models_info = mmcv.load(models_info_path)
 camera_info = mmcv.load(camera_info_path)
 
-raw_models = objects_info.get("models", {})
+raw_models = objects_info.get("objects", {})
 id2obj = {
     int(model_id): model_info.get("display_name") or model_info.get("name") or str(model_id)
     for model_id, model_info in raw_models.items()
@@ -61,6 +61,7 @@ id2obj = dict(sorted(id2obj.items(), key=lambda kv: kv[0]))
 
 objects = list(id2obj.values())
 obj2id = {_name: _id for _id, _name in id2obj.items()}
+
 obj_num = len(objects)
 
 # Build model paths using position index + 1 for file naming (1-indexed)
@@ -108,8 +109,8 @@ def get_model_path(obj_id: int) -> str:
     if osp.exists(canonical):
         return canonical
 
-    model_meta = objects_info.get("models", {}).get(str(obj_id), {})
-    rel_model = model_meta.get("files", {}).get("model") if isinstance(model_meta, dict) else None
+    model_meta = objects_info.get("objects", {}).get(str(obj_id), {})
+    rel_model = model_meta.get("files", {}).get("objects") if isinstance(model_meta, dict) else None
     object_path = model_meta.get("object_path") if isinstance(model_meta, dict) else None
     explicit_path = model_meta.get("model_path") if isinstance(model_meta, dict) else None
 

@@ -111,7 +111,7 @@ class VIRASDataset:
                     filtered_objects_info = json.load(f)
                 # Extract category_id_map: {model_id: local_category_id}
                 self.category_id_map = {}
-                for model_id_str, model_data in filtered_objects_info.get("models", {}).items():
+                for model_id_str, model_data in filtered_objects_info.get("objects", {}).items():
                     model_id = int(model_id_str)
                     local_category_id = model_data.get("local_category_id")
                     if local_category_id is not None:
@@ -266,7 +266,7 @@ def register_with_name_cfg(name, data_cfg=None):
             with open(objects_info_path, "r") as f:
                 filtered_objects_info = json.load(f)
             category_id_map = {}
-            for model_id_str, model_data in filtered_objects_info.get("models", {}).items():
+            for model_id_str, model_data in filtered_objects_info.get("objects", {}).items():
                 model_id = int(model_id_str)
                 local_category_id = model_data.get("local_category_id")
                 if local_category_id is not None:
