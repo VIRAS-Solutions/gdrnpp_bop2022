@@ -15,6 +15,8 @@ import os.path as osp
 import mmcv
 import numpy as np
 
+from pathlib import Path
+
 
 cur_dir = osp.abspath(osp.dirname(__file__))
 root_dir = osp.normpath(osp.join(cur_dir, ".."))
@@ -73,10 +75,10 @@ for idx, obj_id in enumerate(id2obj):
     file_id = idx + 1  # Position in sorted list + 1 = 1-indexed file_id (0, 1, 2, ... → 1, 2, 3, ...)
     obj_id_to_file_id[obj_id] = file_id
     model_paths.append(osp.join(model_dir, f"obj_{file_id:06d}.ply"))
-    texture_paths.append(osp.join(model_dir, f"obj_{file_id:06d}.png"))
+    #texture_paths.append(osp.join(model_dir, f"obj_{file_id:06d}.png"))
 model_colors = [((i + 1) * 10, (i + 1) * 10, (i + 1) * 10) for i in range(obj_num)]
 
-diameters = np.array([models_info[str(obj_id)].get("diameter", 0.0) for obj_id in id2obj], dtype=np.float32)
+diameters = np.array([models_info.get("diameter", 0.0) for obj_id in id2obj], dtype=np.float32)
 
 first_cam = next(iter(camera_info.values()))
 width = int(first_cam.get("width", 640))
@@ -119,8 +121,8 @@ def get_model_path(obj_id: int) -> str:
         candidates.append(explicit_path)
 
     for root in _iter_search_roots():
-        candidates.append(osp.join(root, f"obj_{obj_id:06d}.ply"))
-        candidates.append(osp.join(root, "models", f"obj_{obj_id:06d}.ply"))
+        candidates.append(osp.join(root, f"obj_{obj_id_to_file_id[obj_id]:06d}.ply"))
+        candidates.append(osp.join(root, "prepared_models", f"obj_{obj_id_to_file_id[obj_id]:06d}.ply"))
         if rel_model:
             candidates.append(osp.join(root, rel_model))
             if object_path:
@@ -132,7 +134,7 @@ def get_model_path(obj_id: int) -> str:
             return candidate
 
     raise FileNotFoundError(
-        f"No model file found for model_id {obj_id}. "
+        f"No model file found for model_id {obj_id} - {obj_id_to_file_id[obj_id]}. "
         f"Expected canonical path {canonical} or matching objects_info paths."
     )
 
@@ -140,7 +142,9 @@ def get_model_path(obj_id: int) -> str:
 model_paths = [get_model_path(obj_id) for obj_id in id2obj]
 
 
-def get_models_info():
+def get_models_info(obj_folder_name: str=None):
+    if obj_folder_name is not None:
+        return mmcv.load(osp.join(Path(models_info_path).parent, obj_folder_name, "model_info.json"))
     return mmcv.load(models_info_path)
 
 

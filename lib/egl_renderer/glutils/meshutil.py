@@ -128,42 +128,61 @@ def _unify_rows(a):
 def loadTexture(path):
     from PIL import Image
     import OpenGL.GL as GL
+    import numpy as np
 
-    img = Image.open(path).transpose(Image.FLIP_TOP_BOTTOM)
-    if img.mode != "RGB":
-        # print('convert {} to RGB'.format(img.mode))
-        img = img.convert("RGB")
-    img_data = np.fromstring(img.tobytes(), np.uint8)
-    # print(img_data.shape)
+    img = (
+        Image.open(path)
+        .convert("RGBA")
+        .transpose(Image.FLIP_TOP_BOTTOM)
+    )
+
+    img_data = np.frombuffer(
+        img.tobytes(),
+        dtype=np.uint8
+    )
+
     width, height = img.size
-    # glTexImage2D expects the first element of the image data to be the
-    # bottom-left corner of the image.  Subsequent elements go left to right,
-    # with subsequent lines going from bottom to top.
 
-    # However, the image data was created with PIL Image tostring and numpy's
-    # fromstring, which means we have to do a bit of reorganization. The first
-    # element in the data output by tostring() will be the top-left corner of
-    # the image, with following values going left-to-right and lines going
-    # top-to-bottom.  So, we need to flip the vertical coordinate (y).
     texture_id = GL.glGenTextures(1)
-    GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 1)
-    GL.glBindTexture(GL.GL_TEXTURE_2D, texture_id)  # bind texture
-    GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR)
-    GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR_MIPMAP_LINEAR)
-    GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_CLAMP_TO_EDGE)
-    GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_CLAMP_TO_EDGE)
+
+    GL.glPixelStorei(
+        GL.GL_UNPACK_ALIGNMENT,
+        1
+    )
+
+    GL.glBindTexture(
+        GL.GL_TEXTURE_2D,
+        texture_id
+    )
+
+    GL.glTexParameterf(
+        GL.GL_TEXTURE_2D,
+        GL.GL_TEXTURE_MAG_FILTER,
+        GL.GL_LINEAR
+    )
+
+    GL.glTexParameterf(
+        GL.GL_TEXTURE_2D,
+        GL.GL_TEXTURE_MIN_FILTER,
+        GL.GL_LINEAR_MIPMAP_LINEAR
+    )
+
     GL.glTexImage2D(
         GL.GL_TEXTURE_2D,
         0,
-        GL.GL_RGB,
+        GL.GL_RGBA8,
         width,
         height,
         0,
-        GL.GL_RGB,
+        GL.GL_RGBA,
         GL.GL_UNSIGNED_BYTE,
         img_data,
     )
-    GL.glGenerateMipmap(GL.GL_TEXTURE_2D)
+
+    GL.glGenerateMipmap(
+        GL.GL_TEXTURE_2D
+    )
+
     return texture_id
 
 

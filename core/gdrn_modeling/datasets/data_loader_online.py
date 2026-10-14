@@ -214,16 +214,17 @@ class GDRN_Online_DatasetFromList(Base_DatasetFromList):
         ref_key = dset_meta.ref_key
         data_ref = ref.__dict__[ref_key]
         objs = dset_meta.objs
+        objs = sorted(objs)
         cfg = self.cfg
         num_fps_points = cfg.MODEL.POSE_NET.GEO_HEAD.NUM_REGIONS
         cur_fps_points = {}
         loaded_fps_points = data_ref.get_fps_points()
         for i, obj_name in enumerate(objs):
-            obj_id = data_ref.obj2id[obj_name]
+            obj_id = data_ref.obj2id[obj_name] # global ID
             if with_center:
-                cur_fps_points[i] = loaded_fps_points[str(obj_id)][f"fps{num_fps_points}_and_center"]
+                cur_fps_points[i] = loaded_fps_points[str(i)][f"fps{num_fps_points}_and_center"]
             else:
-                cur_fps_points[i] = loaded_fps_points[str(obj_id)][f"fps{num_fps_points}_and_center"][:-1]
+                cur_fps_points[i] = loaded_fps_points[str(i)][f"fps{num_fps_points}_and_center"][:-1]
         self.fps_points[dataset_name] = cur_fps_points
         return self.fps_points[dataset_name]
 

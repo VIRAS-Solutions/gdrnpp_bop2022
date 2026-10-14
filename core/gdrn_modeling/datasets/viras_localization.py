@@ -214,11 +214,11 @@ def _mask_to_rle(mask, im_h: int, im_w: int, bbox):
 
 def get_viras_metadata(obj_names, ref_key):
     data_ref = ref.__dict__[ref_key]
-    loaded_models_info = data_ref.get_models_info()
 
     cur_sym_infos = {}
     for i, obj_name in enumerate(obj_names):
         obj_id = data_ref.obj2id[obj_name]
+        loaded_models_info = data_ref.get_models_info()
         model_info = loaded_models_info[str(obj_id)]
         if "symmetries_discrete" in model_info or "symmetries_continuous" in model_info:
             sym_transforms = misc.get_symmetry_transformations(model_info, max_sym_disc_step=0.01)
