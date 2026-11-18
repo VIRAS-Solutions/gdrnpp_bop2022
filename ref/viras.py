@@ -78,7 +78,7 @@ for idx, obj_id in enumerate(id2obj):
     #texture_paths.append(osp.join(model_dir, f"obj_{file_id:06d}.png"))
 model_colors = [((i + 1) * 10, (i + 1) * 10, (i + 1) * 10) for i in range(obj_num)]
 
-diameters = np.array([models_info.get("diameter", 0.0) for obj_id in id2obj], dtype=np.float32)
+diameters = np.array([models_info.get(str(obj_id), {}).get("diameter", 0.0) for obj_id in id2obj], dtype=np.float32)
 
 first_cam = next(iter(camera_info.values()))
 width = int(first_cam.get("width", 640))
